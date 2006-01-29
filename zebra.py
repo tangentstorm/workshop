@@ -4,6 +4,7 @@ reptile: a text generation and reporting system
 import os
 import string
 import xmllib
+import xml.sax.handler
 import unittest
 from handy import deNone
 from handy import xmlEncode
@@ -981,7 +982,14 @@ def deCurl(s):
     res = reVar.sub('<var>\\1</var>', res)
     return res
 
-# * X2M : xml 2 model
+# * X2M : our top level xml parser
+# ** idea
+"""
+The basic idea here was that the zebra compiler uses
+the same type of data structure as zebra itself. So
+in theory, you could use a template to produce different
+backends.
+"""
 # ** test
 class Xml2mdlTestCase(unittest.TestCase):
 
