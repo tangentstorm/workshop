@@ -2,7 +2,6 @@
 """
 clerk: an object-relational mapper in literate style
 """
-from pytypes import IdxDict
 from strongbox import *
 from storage import where
 from __future__ import generators
