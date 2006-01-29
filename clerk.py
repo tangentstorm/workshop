@@ -117,7 +117,7 @@ class Local(Strongbox):
 
 class LinkInjectorTest(TestCase):
 
-    def check_inject(self):
+    def test_inject(self):
         """
         basic test case.
         """
@@ -147,7 +147,7 @@ class LinkInjectorTest(TestCase):
         assert len(obj.ref.private.injectors) == 0
 
 
-    def check_with_linkset(self):
+    def test_with_linkset(self):
         """
         what happens if the thing we're injecting
         has a linkset of its own (this used to fail)
@@ -250,7 +250,7 @@ Content.box.type=Package
 
 class LinkSetInjectorTest(TestCase):
 
-    def check_inject(self):
+    def test_inject(self):
 
         ms = MockStorage()
         ms.store("Package")

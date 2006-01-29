@@ -255,7 +255,7 @@ class DateTime:
 # ** test
 class DateTest(unittest.TestCase):
 
-    def check_add(self):
+    def test_add(self):
         assert Date("1/1/2001") + 1 == Date("1/2/2001"), \
                "normal add didn't work."
         assert Date("1/31/2001") + 1 == Date("2/1/2001"), \
@@ -271,7 +271,7 @@ class DateTest(unittest.TestCase):
         assert Date("1/1/2001") + 366 == Date("1/2/2002"), \
                "adding more than a year didn't work"
 
-    def check_subtract(self):
+    def test_subtract(self):
         assert Date("1/2/2001") - 1 == Date("1/1/2001"), \
                "normal add didn't work."
         assert Date("2/1/2001") - 1 == Date("1/31/2001"), \
@@ -286,7 +286,7 @@ class DateTest(unittest.TestCase):
                "subtracting more than a year didn't work"
         
 
-    def check_today(self):
+    def test_today(self):
         """
         temporarily set time.time() to return 10/19/2001
         and test for today.
@@ -299,16 +299,16 @@ class DateTest(unittest.TestCase):
         finally:
             time.time = _time
 
-    def check_repr(self):
+    def test_repr(self):
         d = Date('1/1/2001')
         assert repr(d) == "Date('01/01/2001')", "wrong __repr__"
 
-    def check_daysInMonth(self):
+    def test_daysInMonth(self):
         assert Date("1/1/2001").daysInMonth() == 31
         assert Date("2/1/2001").daysInMonth() == 28
         assert Date("2/1/2000").daysInMonth() == 29
         
-    def check_daysInYear(self):
+    def test_daysInYear(self):
         assert Date("1/1/1999").daysInYear() == 365
         assert Date("1/1/2000").daysInYear() == 366 # leap year
         assert Date("1/1/2001").daysInYear() == 365

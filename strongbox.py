@@ -288,7 +288,7 @@ class attr(property):
 
 class LinkTest(unittest.TestCase):
 
-    def check_simple(self):
+    def test_simple(self):
         class Child(Strongbox):
             name = attr(str)
         class Parent(Strongbox):
@@ -297,7 +297,7 @@ class LinkTest(unittest.TestCase):
         p.kid = Child(name="damien")
         
 
-    def check_typing(self):
+    def test_typing(self):
         class LinkedListMember(Strongbox):
             next = link(forward)
         LinkedListMember.next.type=LinkedListMember
@@ -888,7 +888,7 @@ class WhiteBoxTest(unittest.TestCase):
 
     # we implement the famous Gang of Four Observer pattern:
     
-    def check_Observable(self):
+    def test_Observable(self):
         subject = WhiteBox()
         observer = object()
         subject.addObserver(observer)
@@ -899,7 +899,7 @@ class WhiteBoxTest(unittest.TestCase):
     # Injectable is like Observable, but instead of notifying
     # on set, we notify on get. That's so we can lazy load objects:
 
-    def check_Injectable(self):
+    def test_Injectable(self):
         subject = WhiteBox()
         injector = object()
         subject.addInjector(injector)
@@ -915,7 +915,7 @@ class WhiteBoxTest(unittest.TestCase):
     # As such, the events are fired AFTER the value is set
     # in the object. (Contrast to getter events, below...)
 
-    def check_set_event(self):
+    def test_set_event(self):
         class Observer:
             def __init__(self):
                 self.updated = False
@@ -947,7 +947,7 @@ class WhiteBoxTest(unittest.TestCase):
     # Of course, you couldn't call anything after you returned
     # a value anyway :)
 
-    def check_get_event(self):
+    def test_get_event(self):
         class Injector:
             def __init__(self):
                 self.called = 0

@@ -6,10 +6,10 @@ import unittest
 import UserDict
 
 # * test
-class OrddDictTest(unittest.TestCase):
+class OrderedDictTest(unittest.TestCase):
 
-    def check_OrddDict(self):
-        ordd = OrddDict()
+    def test_OrderedDict(self):
+        ordd = OrderedDict()
         ordd["a"] = 1
         ordd["b"] = 2
         ordd["c"] = 2
@@ -22,9 +22,9 @@ class OrddDictTest(unittest.TestCase):
                "slicing is wrong: %s" % str(ordd[0:2])
 
 
-    def check_nKeys(self):
+    def test_nKeys(self):
         "check numeric keys"
-        ordd = OrddDict()
+        ordd = OrderedDict()
         ordd[0] = "a"
         ordd[1] = "b"
         assert ordd.keys() == [0, 1], \
@@ -32,8 +32,8 @@ class OrddDictTest(unittest.TestCase):
         
 
 
-    def check_lshift(self):
-        ordd = OrddDict()
+    def test_lshift(self):
+        ordd = OrderedDict()
         ordd << "x"
         ordd << "y"
         ordd << "z"
@@ -43,8 +43,8 @@ class OrddDictTest(unittest.TestCase):
                "values are wrong: %s" % str(ordd.values())
 
 
-    def check_looping(self):
-        ordd = OrddDict()
+    def test_looping(self):
+        ordd = OrderedDict()
         for item in ordd:
             assert 0, "there shouldn't be anything in ordd"
 
@@ -57,8 +57,8 @@ class OrddDictTest(unittest.TestCase):
             assert 0, "there shouldn't be anything in ordd after .clear()"
 
 
-    def check_negative(self):
-        ordd = OrddDict()
+    def test_negative(self):
+        ordd = OrderedDict()
         ordd << "abc"
         ordd << "xyz"
         assert ordd[-1] == "xyz", "-1 broke"
@@ -71,11 +71,11 @@ class OrddDictTest(unittest.TestCase):
         assert gotError, "-3 worked but should not have!"
         
 
-    def check_repr(self):
+    def test_repr(self):
         """
         really, this just exposes a bug if the keys are numbers...
         """
-        ordd = OrddDict()
+        ordd = OrderedDict()
         ordd << "zero"
         assert repr(ordd) == "{0: 'zero'}", \
                "wrong representation: %s" % repr(ordd)
@@ -94,7 +94,7 @@ class OrderedDict(UserDict.UserDict):
         if type(key)==type(0):            
             if not (-len(self.ordd) <= key < len(self.ordd)):
                 ## oddly enough, it is this IndexError here
-                ## that allows you to do "for x in myOrddDict:"
+                ## that allows you to do "for x in myOrderedDict:"
                 raise IndexError, `key` + " is out of bounds."
             # convert it to a string key
             key = self.ordd[key]
@@ -179,3 +179,8 @@ class OrderedDict(UserDict.UserDict):
     #@TODO: what should __delitem__ do??
     # I'm not going to worry about it now, because
     # I don't need to delete anything from my lists.
+
+# * --
+
+if __name__=="__main__":
+    unittest.main()

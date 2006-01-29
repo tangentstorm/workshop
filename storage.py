@@ -4,11 +4,18 @@ storage: a module for storing tabular data
 # * dependencies
 import unittest
 import operator
+import warnings
 from pytypes import Date
 
 # * optinal dependencies
 try: import sqlite
 except ImportError: sqlite = None
+
+try:
+    import MySQLdb
+except ImportError:
+    MySQLdb = None
+
 
 # * QueryExpression
 class QueryExpression(object):
@@ -146,7 +153,7 @@ class MockStorageTest(unittest.TestCase):
     def setUp(self):
         self.s = MockStorage()
 
-    def check_store_insert(self):
+    def test_store_insert(self):
         row = self.s.store("test_person", name="fred")
         assert row == {"ID":1, "name":"fred"}
 
@@ -156,8 +163,8 @@ class MockStorageTest(unittest.TestCase):
         assert self.wholedb()==[{"ID":1, "name":"fred"},
                                 {"ID":2, "name":"wanda"}]
 
-    def check_store_insertExtra(self):
-        self.check_store_insert()
+    def test_store_insertExtra(self):
+        self.test_store_insert()
         self.s.store("test_person", name="rick")
         self.s.store("test_person", name="bob")
         self.s.store("test_person", name="jack")
@@ -168,16 +175,16 @@ class MockStorageTest(unittest.TestCase):
                                 {"ID":5, "name":"jack"}]
 
 
-    def check_oldmatch(self):
-        self.check_store_insertExtra()
+    def test_oldmatch(self):
+        self.test_store_insertExtra()
         match = self.s.match("test_person", where("ID")==2)
         assert match[0]["name"] == "wanda", "new style broke"
         match = self.s.match("test_person", ID=2)
         assert match[0]["name"] == "wanda", "old style broke"
 
 
-    def check_querybuilder_matches(self):
-        self.check_store_insertExtra()
+    def test_querybuilder_matches(self):
+        self.test_store_insertExtra()
         match = self.s.match("test_person", where("ID")==5 )
         assert match[0]['name'] == 'jack'
 
@@ -197,17 +204,17 @@ class MockStorageTest(unittest.TestCase):
 
 
 
-    def check_querybuilder_sorting(self):
-        self.check_store_insertExtra()
+    def test_querybuilder_sorting(self):
+        self.test_store_insertExtra()
         assert [p['name'] for p in self.s.match("test_person", orderBy='name')] == ['bob', 'fred', 'jack', 'rick', 'wanda']
 
     def populate(self):
-        self.check_store_insert()
+        self.test_store_insert()
 
     def wholedb(self):
         return self.s.match("test_person")
 
-    def check_store_update(self):
+    def test_store_update(self):
         self.populate()
         row = self.s.fetch("test_person", 1)
         row["name"] = "frood"
@@ -215,7 +222,7 @@ class MockStorageTest(unittest.TestCase):
         assert self.wholedb() == [{"ID":1, "name":"frood"},
                                   {"ID":2, "name":"wanda"}]        
 
-    def check_store_update_longs(self):
+    def test_store_update_longs(self):
         # same as above but with lnogs
         self.populate()
         row = self.s.fetch("test_person", 1L)
@@ -224,7 +231,7 @@ class MockStorageTest(unittest.TestCase):
         assert self.wholedb() == [{"ID":1, "name":"frood"},
                                   {"ID":2, "name":"wanda"}]        
 
-    def check_store_update_strings(self):
+    def test_store_update_strings(self):
         # same as above but with lnogs
         self.populate()
         row = self.s.fetch("test_person", "1")
@@ -233,18 +240,18 @@ class MockStorageTest(unittest.TestCase):
         assert self.wholedb() == [{"ID":1, "name":"frood"},
                                   {"ID":2, "name":"wanda"}]        
 
-    def check_match(self):
+    def test_match(self):
         assert self.wholedb() == []
         self.populate()
         results = self.s.match("test_person", where("ID") == 1)
         assert results == [{"ID":1, "name":"fred"}], str(results)
 
-    def check_fetch(self):
-        self.check_store_insert()
+    def test_fetch(self):
+        self.test_store_insert()
         wanda = self.s.fetch("test_person", 2)
         assert wanda["name"]=="wanda"
 
-    def _check_delete(self, key_type):
+    def _test_delete(self, key_type):
         self.populate()
         self.s.delete("test_person", key_type(1))
         people = self.s.match("test_person")
@@ -254,14 +261,14 @@ class MockStorageTest(unittest.TestCase):
         assert people == []
 
 
-    def check_delete_with_int_id(self):
-        self._check_delete(int)
+    def test_delete_with_int_id(self):
+        self._test_delete(int)
 
-    def check_delete_with_long_id(self):
-        self._check_delete(long)
+    def test_delete_with_long_id(self):
+        self._test_delete(long)
 
-    def check_delete_with_str_id(self):
-        self._check_delete(str)        
+    def test_delete_with_str_id(self):
+        self._test_delete(str)        
 # ** code
 class MockStorage(Storage):
     OPS = {
@@ -389,14 +396,28 @@ class MockStorage(Storage):
     
 # * MySQLStorage
 # ** test
-# @TODO: I'm not sure this test is running!!
 class MySQLStorageTest(unittest.TestCase):
+    """
+    To run this test, you need to create a test database
+    and then define a module that connects to it. It should
+    be called sqlTest.py and it should look something like this:
 
+    # sqlTest.py
+    import MySQLdb
+    dbc = MySQLdb.connect(
+              user='test',
+              passwd='whatever',
+              host='localhost',
+              db='test')
+    """
     def setUp(self):
         try:
             import sqlTest
+            self.skip = False
         except ImportError:
-            raise "skip"
+            warnings.warn("skipping MySQL tests: no sqlTest module")
+            self.skip = True
+            return
         self.s = MySQLStorage(sqlTest.dbc)
         cur = sqlTest.dbc.cursor()
         try:
@@ -411,7 +432,8 @@ class MySQLStorageTest(unittest.TestCase):
                 """)
 
 
-    def check_store_quotes(self):
+    def test_store_quotes(self):
+        if self.skip : return
         self.populate()
         row = self.s.fetch("test_person", 1)
         row["name"] = "j'mo\"cha's'ha''ha"
@@ -514,14 +536,18 @@ class MySQLStorage(Storage):
 
 
     def _execute(self, sql):
-        import MySQLdb
         self.maxAttempts = 3
         attempt = 0
+        if MySQLdb:
+            theException = MySQLdb.OperationalError
+        else:
+            theException = NotImplementedError # hack!
+            
         while attempt < self.maxAttempts:
             try:
                 self.cur.execute(sql)
                 break
-            except MySQLdb.OperationalError, e:
+            except theException, e:
                 # OperationalError: usually means the db is down.
                 attempt += 1
                 if attempt >= self.maxAttempts:
@@ -535,11 +561,11 @@ class MySQLStorage(Storage):
             
 # * PySQLiteStorage
 # ** test
-# @TODO: is this test even runnning?
+
 class PySQLiteStorageTest(MockStorageTest):
 
     def setUp(self):
-        dbc = sqlite.connect("spec/test.db")
+        dbc = sqlite.connect(":memory:")
         self.s = PySQLiteStorage(dbc)
         cur = dbc.cursor()
         try:
@@ -553,8 +579,7 @@ class PySQLiteStorageTest(MockStorageTest):
                 )
                 """)
 
-
-    def check_store_quotes(self):
+    def test_store_quotes(self):
         self.populate()
         row = self.s.fetch("test_person", 1)
         row["name"] = "j'mo\"cha's'ha''ha"
