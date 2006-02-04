@@ -2,7 +2,9 @@
 python types
 """
 
+
 # * imports - required
+import re
 import calendar
 import copy
 import time
@@ -439,6 +441,43 @@ def dateRange(date1, date2):
     return tuple(dates)
 # * IdxDict
 from OrderedDict import OrderedDict as IdxDict
+# * EmailAddress
+def email(s):
+    try:
+        return EmailAddress(s)
+    except TypeError:
+        return 0
+
+class EmailAddressTest(unittest.TestCase):
+  
+    def testIt(self):
+        assert email('sabren@manifestation.com')
+        assert email('michal.sabren@manifest-station.com')
+        assert not email('laskdjf..asdf@sadf.com')
+        assert not email('asdf@@asdf.asc')
+        assert not email('aslkdjf')
+
+
+class EmailAddress(object):
+
+    regex = r'^(\w|\d|_|-)+(\.[a-zA-Z0-9_\-]+)*' \
+            r'@(\w|\d|_|-)+(\.[a-zA-Z0-9_\-]+)+$'
+    
+    def __init__(self, value):
+        if not re.match(self.regex, value):
+            raise TypeError, "invalid EmailAddress"
+        self.value = value
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
+
+    def __cmp__(self, other):
+        return cmp(self.value, other)
+
+
 # * ---
 if __name__=="__main__":
     unittest.main()
