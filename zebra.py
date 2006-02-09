@@ -8,6 +8,7 @@ import unittest
 import handy
 from handy import deNone
 from handy import xmlEncode
+import html
 
 # * tags
 '''
