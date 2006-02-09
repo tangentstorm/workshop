@@ -153,7 +153,8 @@ class DateTime:
         s = datestr
         if mxDateTime and type(s) == mxDateTime.DateTimeType:
             s = str(s)[:-3] # strip off milliseconds
-        elif datetime and isinstance(s, datetime.datetime):
+        elif datetime and (isinstance(s, datetime.datetime)
+                           or isinstance(s, datetime.date)):
             s = s.strftime("%Y-%m-%d %H:%M:%S")
         elif type(s) != str:
             raise TypeError, "usage: DateTime(string) (got %s)" % type(s)
