@@ -8,7 +8,7 @@
 <p>source code: <a href="narrative.py"><code>narrative.py</code></a></p>
 """
 
-#$Id:$
+# $Id$
 
 import new
 import inspect
