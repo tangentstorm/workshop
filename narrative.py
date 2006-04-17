@@ -446,7 +446,7 @@ def test_replaceMethod_undefined(self):
 """
 def replaceMethod(theClass):
     def wrapper(f):
-        orig = getattr(theClass, f.__name__, None)
+        orig = theClass.__dict__.get(f.__name__, None)
 
         if not orig:
             raise NameError("attempt to replace nonexistent method %s.%s!"
@@ -561,7 +561,7 @@ def addMethod(theClass):
     A decorator that adds a new method to a class.
     """
     def wrapper(f):
-        if (hasattr(theClass, f.__name__)):
+        if (theClass.__dict__.get(f.__name__)):
             raise NameError("class %s already has method named %s" 
                             % (theClass.__name__, f.__name__))
         setattr(theClass, f.__name__,
