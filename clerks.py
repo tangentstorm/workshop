@@ -2,10 +2,10 @@
 """
 clerk: an object-relational mapper in literate style
 """
+import narrative as narr
+import operator
 from strongbox import *
 from storage import where
-from __future__ import generators
-import operator
 from unittest import TestCase
 from storage import MockStorage
 
@@ -23,6 +23,19 @@ records that were tightly bound to the database, but I found it
 was easier to just use one "Clerk" object.
 
 """
+
+
+
+
+
+# * Clerk
+# ** storing simple objects
+# ** fetch an object by ID
+# ** matching objects
+# ** deleting objects
+
+
+
 # * Lazyloading with Injectors
 # ** what are injectors?
 """
@@ -155,14 +168,12 @@ class LinkInjectorTest(TestCase):
 
         class Kid(Strongbox):
             ID = attr(long)
-            parent = link(forward)
+            parent = link(lambda : Parent)
         
         class Parent(Strongbox):
             ID = attr(long)
             name = attr(str)
             kids = linkset(Kid, "parent")
-            
-        Kid.parent.type = Parent
         
         class Uncle(Strongbox):
             brother = link(Parent)
@@ -227,7 +238,7 @@ class LinkInjector:
             new = self.clerk.fetch(self.fclass, self.fID).private
 
             # inject the data:
-            for slot in self.fclass.__attrs__:
+            for slot, _attr in stub.getSlots():
                 setattr(old, slot, getattr(new, slot))
             old.isDirty = False
 
@@ -239,14 +250,12 @@ class LinkInjector:
 # *** test
 class Content(Strongbox):
     ID = attr(long)
-    box = link(forward)
+    box = link(lambda : Package)
     data = attr(str)
 
 class Package(Strongbox):
     ID = attr(long)
     refs = linkset(Content, "box")
-
-Content.box.type=Package
 
 class LinkSetInjectorTest(TestCase):
 
@@ -319,49 +328,12 @@ class LinkSetInjector:
 # * ClerkError
 class ClerkError(Exception): pass
 
-# * getSlotsOfType
-def getSlotsOfType(klass, t):
-    for slot in klass.__attrs__:
-        attr = getattr(klass, slot)
-        if isinstance(attr, t):
-            yield (slot, attr)
-
-
-
-# * BoxInspector 
-class BoxInspector(object):
-    def __init__(self, box):
-        self.box = box
-    def plainValues(self):
-        """
-        returns a dict of name:value pairs
-        with one enty per plain attribute
-        """
-        res = {}
-        for item in self.plainAttributes():
-            res[item] = getattr(self.box, item)
-        return res
-    def plainAttributes(self):
-        """
-        returns a list of plain attribute
-        names  on the box:  Attributes, but not
-        links, linksets, or virtual properties
-        """
-        return [
-            name
-            for (name,value) in self.box.__attrs__.items()
-            if type(value) == attr
-        ]
-    def linkNames(self):
-        return getSlotsOfType(self.box.__class__, link)
-
-
 
 # * Schema
 # ** test
 class Loop(Strongbox):
-    next = link(forward)
-    tree = linkset(forward, "next")
+    next = link(lambda : Loop)
+    tree = linkset((lambda : Loop), "next")
 Loop.next.type = Loop
 Loop.tree.type = Loop
 
@@ -445,14 +417,13 @@ class Schema(object):
 class Record(Strongbox):
     ID = attr(long)
     val = attr(str)
-    next = link(forward)
-Record.next.type=Record
+    next = link(lambda : Record)
 
 class Node(Strongbox):
     ID = attr(long)
     data = attr(str)
-    parent = link(forward)
-    kids = linkset(forward, "parent")
+    parent = link(lambda : Node)
+    kids = linkset((lambda : Node), "parent")
 Node.kids.type=Node
 Node.parent.type=Node   
 
@@ -747,15 +718,14 @@ class Clerk(object):
         self._seen[obj] = True
 
         # this just gets data about the object. @TODO: might be out of date
-        insp = BoxInspector(obj)
-        vals = insp.plainValues()
+        vals = obj.attributeValues()
         klass = obj.__class__
 
         #if hasattr(self, "DEBUG"):
         #    print "storing %s(ID=%s)" % (klass.__name__, obj.ID)
 
         # we need to save links first, because we depend on them:
-        for name, lnk in insp.linkNames():
+        for name, lnk in obj.getSlotsOfType(link):
             column = self.schema.columnForLink(lnk)
             ref = getattr(obj, name)
             if (ref):
@@ -800,7 +770,7 @@ class Clerk(object):
         obj.private.isDirty = False
 
         # linkSETS, on the other hand, depend on us, so they go last:
-        for name, ls in getSlotsOfType(klass,linkset):
+        for name, ls in obj.getSlotsOfType(linkset):
             column = self.schema.columnForLinkSet(ls)
             for item in getattr(obj.private, name):
                 if id_has_changed:
@@ -872,7 +842,7 @@ class Clerk(object):
         obj.private.dont_need_injectors = True
         klass = obj.__class__
         ## linkinjectors:
-        for name,lnk in getSlotsOfType(klass,link):
+        for name,lnk in obj.getSlotsOfType(link):
             fclass = lnk.type
             column = self.schema.columnForLink(lnk)
             fID = othercols.get(column)
@@ -888,7 +858,7 @@ class Clerk(object):
                     self._put_memo(stub)
 
         ## linksetinjectors:
-        for name,ls in getSlotsOfType(klass,linkset):
+        for name,ls in obj.getSlotsOfType(linkset):
             fclass = ls.type
             column = self.schema.columnForLinkSet(ls)
             #@TODO: there can just be one LSI instance per linkset attribute
@@ -899,9 +869,12 @@ class Clerk(object):
         return self._attr_and_other_columns(klass, rec)[0]
 
     def _attr_and_other_columns(self, klass, rec):
+        """
+        this separates the columns in rec
+        """
         attrs, others = {}, {}
         for item in rec.keys():
-            if item in klass.__attrs__:
+            if hasattr(klass, item):
                 attrs[item]=rec[item]
             else:
                 others[item]=rec[item]
@@ -973,7 +946,7 @@ def MockClerk(dbmap=None):
     return Clerk(MockStorage(), dbmap or AutoSchema())
 
 # * regression test
-class _regression_Test(unittest.TestCase):
+class RegressionTest(unittest.TestCase):
 
     def test_disappearing_events(self):
         """
@@ -993,16 +966,14 @@ class _regression_Test(unittest.TestCase):
         class Evt(Strongbox):
             ID = attr(long)
             evt = attr(str)
-            acc = link(forward)
+            acc = link(lambda : Acc)
         class Sub(Strongbox):
             ID = attr(long)
-            acc = link(forward)
+            acc = link(lambda : Acc)
         class Acc(Strongbox):
             ID = attr(long)
             subs = linkset(Sub, "acc")
             evts = linkset(Evt, "acc")
-        Evt.acc.type = Acc
-        Sub.acc.type = Acc
         schema = Schema({
             Evt:"evt",
             Sub:"sub",
@@ -1063,20 +1034,17 @@ class _regression_Test(unittest.TestCase):
         class User(Strongbox):
             ID = attr(long)
             username = attr(str)
-            domains = linkset(forward,"user")
-            sites = linkset(forward,"user")
+            domains = linkset((lambda : Domain),"user")
+            sites = linkset((lambda : Site),"user")
         class Domain(Strongbox):
             ID = attr(long)
             user = link(User)
             name = attr(str)
-            site = link(forward)            
+            site = link(lambda : Site)            
         class Site(Strongbox):
             ID = attr(long)
             user = link(User)
             domain = link(Domain)
-        User.domains.type = Domain
-        User.sites.type = Site
-        Domain.site.type = Site
         dbMap = Schema({
             User:"user",
             Domain:"domain",
@@ -1117,3 +1085,4 @@ class _regression_Test(unittest.TestCase):
 # * --
 if __name__=="__main__":
     unittest.main()
+

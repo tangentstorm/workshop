@@ -1,5 +1,5 @@
 from handy import sendmail, trim
-from strongbox import attr, Strongbox, link, forward, linkset, BoxView
+from strongbox import attr, Strongbox, link, linkset, BoxView
 from clerks import Clerk, Schema, MockClerk
 from storage import MockStorage
 import cStringIO
@@ -776,9 +776,7 @@ class AdminApp(App):
             obj = self.clerk.fetch(klass, self.input["ID"])
         else:
             obj = klass()
-        for item in obj.__attrs__:
-            if self.input.has_key(item):
-                setattr(obj, item, self.input[item])
+        obj.noisyUpdate(self.input)
         return obj
         
     def _dispatch(self, action):
@@ -867,8 +865,8 @@ class Node(Strongbox):
     name = attr(str)
     path = attr(str)
     data = attr(str)
-    parent = link(forward("sixthday.Node"))
-    children = linkset(forward("sixthday.Node"), "parent")
+    parent = link(lambda : Node)
+    children = linkset((lambda : sixthday.Node), "parent")
 
     def __init__(self, **kwargs):
         super(Node, self).__init__()
@@ -1022,8 +1020,8 @@ class Form:
             raise ValueError, "invalid data, see self.errors"
 
     def keys(self):
-        if hasattr(self.model, "__attrs__"):
-            return self.model.__attrs__.keys()
+        if hasattr(self.model.__class__, "attrs"):
+            return self.model.__class__.attrs
         else:
             return tuple([a for a in dir(self.model) if not a.startswith("_")])
 

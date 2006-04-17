@@ -1,34 +1,102 @@
 """
 strongbox: observable objects with runtime type checking.
 """
+# * dependencies
 import sre
 import types
 import unittest
 import warnings
+import narrative as narr
 from pytypes import Date
 from types import StringType, LambdaType, ListType, NoneType
-
-# * concept
+# * notes on the cleanup effort
 """
-0208.2002 Strongbox Concept
 
-Strongbox provides strongly-typed data objects for python.
-These objects can be stored transparently in a relational
-or object database.
+- sanitize/validate : ugh!
+  
+- is it possible to make attributes usable from any class?
 
-* Strongbox is a metaclass.
-Strongbox by itself doesn't do much. You subclass it,
-and then your subclasses have the following properties:
+- no tests that prove getters and setters work!
 
-** strong typing
-Strongboxes are strongly typed. They have a set number of slots,
+- why do we need the metaclass?
+  - it tells attributes their names  
+  - magic getters and setters -> explicit?
+
+
+"""
+
+# * Strongbox: classes for structured data 
+"""
+<p>Python's dynamic typing system is one of its best features.
+But sometimes you want something a little more... Strict.</p>
+
+<p>When you're dealing with user input you often want to make
+sure your data conforms to certain rules. For example, that
+dates and numbers and email addresses are in the correct
+format.</p>
+
+<p>If you have a standard mechanism for specifying the structure
+of this kind of data, you can do all kinds of things with them.
+For example, you could automatically map them to and from a
+database or generate a user inferface.</p>
+
+<p>Strongbox provides such a mechanism.</p>
+"""
+
+# * Attributes Enforce their Types
+"""
+<p>Unlike a normal python class, Strongbox classes
+require attributes to be explicitly defined:</p>
+
+Strongboxes are manifestly typed. They have a set number of slots,
 and each slot is associated with exactly one type of data.
-
+ 
 These types may or may not correspond with python types. (They
 could also be strings that match a regular expression, for 
 example, or be defined with a function)
+"""
 
-** magic getters and setters
+@narr.testcase
+def test_attr_declaration(test):
+
+    # every Person has a name
+    class Person(Strongbox): 
+        name = attr(str)
+
+    # so, fred has a name:
+    fred = Person()
+    fred.name = "Fred"
+    assert fred.name == "Fred"
+
+    # because .name is a string, non-string values will be converted:
+    fred.name = 123
+    test.assertEquals("123", fred.name)
+    
+# * Attributes Must Be Declared
+"""
+<p>Let's start with the basics. A <code>Strongbox</code>
+declaration includes the valid attributes for that
+class:</p>
+"""
+
+@narr.testcase
+def test_attr_must_be_declared(test):
+    
+    class Person(Strongbox): 
+        name = attr(str)
+
+    # now we can use fred.name for Person fred
+    fred = Person()
+    fred.name = "fred"
+    assert fred.name == "fred"
+    
+    # but fred.age blows up because it has not been declared
+    test.assertRaises(AttributeError, setattr, fred, "age", 50)
+    test.assertRaises(AttributeError, getattr, fred, "age")
+
+
+# * Getters and Setters
+"""
 get_xxx and set_xxx are magically understood to be accessors 
 for the property xxx. There is no del_xxx because that
 would violate strong typing. :)
@@ -36,56 +104,10 @@ would violate strong typing. :)
 All properties have getters and setters, even if you 
 don't define them.
 
-** observable
-getters, setters, relationship operations, and method calls 
-can all trigger events transparently.
-
-
-* Persistence
-
-** Clerk
-One type of Observer is called Clerk. Clerk connects
-to a Source and can give you a Strongbox, monitor
-that strongbox for changes, and commit it back to the
-source, either implicitly or explicitly.
-
-** Sources
-Sources provide low-level routines for loading and
-storing strongbox objects. Generally, these are simple
-adapters for existing storage solutions. 
-
-The only Source bundled with the first version of strongbox
-will be DBAPI2Source for relational databases.
-
-** Schemas
-Since relational databases store everything in tables,
-we need a way of mapping objects to tables. This is done
-with a simple Schema object.
-
-
-
-
-
-* future
-** lazy loading
-If we have a tree or network of Nodes, we don't want
-to have to load them all. Often - especially on the web -
-we only care about one Node at a time, but we may also need
-to get to some subset of their children.
-
-Actually, I'm not sure lazy loading is the best solution 
-for this. It might be simpler and faster to just load all
-the nodes at once with one query.
-
-** magic contracts
-before_method(), after_method(), and always()
 """
-# * old notes
+# * The Observer Pattern: <code>onSet()</code>
+# * Lazy Loading with <code>onGet()</code>
 """
-* strongbox module overview 
-Strongbox is a tool for strongly-typed data objects in python.
-
-* persistence
 Persistence is not actually handled by strongbox. It will be handled
 by an outside module, which defines the process of mapping strongboxes
 to tables in a relational database (or to some other form of
@@ -180,35 +202,58 @@ wait a minute or two, until we start pulling in attributes.
 Okay, well... Let's try it.
 
 """
-# * forward
-class forward:
-    """
-    dummy class for defining recursive structures)
-    does absolutely nothing.
-    """
-    def __init__(self, typename=None):
-        #@TODO: now that initialvalue passes instance,
-        #@TODO: make forward('Whatever') take a module.Class
-        #@TODO: and do some kind of morphing trick.
-        if type(typename) != str:
-            warnings.warn("forward() should be forward('module.ClassName')")
+
+
+# * future declarations use lambda
+@narr.testcase
+def test_forward_links(test):
+    class Linked(Strongbox):
+        next = link(lambda : Linked)
+    chain = Linked()
+    chain.next = Linked()
+    chain.next.next = Linked()
+    
             
 # * Notgiven
 class Notgiven:
     "I'm a placeholder type distinct from None"
     
+
 # * attr
-# ** no tests yet :(
-# ** code
 class attr(property):
     """
-    A small class representing a static attribute.
+    A property with runtime type checking.
     """
-    def __init__(self, typ, okay=None, default=Notgiven, allowNone=1):
+    def __init__(self, typ, okay=None,
+                 default=Notgiven, allowNone=True):
         self.type = typ
         self.allowNone = allowNone
         self._determineDefault(typ, default)
         self._setOkay(okay)
+        self.name = None
+
+        property.__init__(self,
+            fget = self.wrapGetter,
+            fset = self.wrapSetter,
+            fdel = None,
+            doc = None)
+        
+
+    def wrapSetter(self, instance, value):
+        self.setter(instance, value)
+
+    def setter(self, instance, value):
+        val = self.sanitize(value)
+        setattr(instance.private, self.name, val)
+        instance.onSet(self.name, val)
+
+    def wrapGetter(self, instance):
+        return self.getter(instance)
+    
+    def getter(self, instance):
+        instance.onGet(self.name)
+        return getattr(instance.private, self.name)
+
 
     def __repr__(self):
         return "#< %s = %s(%s, ...) >#" % (
@@ -282,52 +327,58 @@ class attr(property):
         """
         Factored out so I can override this in Link, etc.
         """
+        self.stripLambda()
         return isinstance(value, self.type)
-# * link
+
+    def stripLambda(self):
+        if type(self.type) == types.LambdaType:
+            self.type = self.type() # get rid of lambda: wrapper
+
+
+# * One-to-One Relationships with <code>link</code>
 # ** test
 
-class LinkTest(unittest.TestCase):
+@narr.testcase
+def test_simple(self):
+    class Child(Strongbox):
+        name = attr(str)
+    class Parent(Strongbox):
+        kid = link(Child)
+    p = Parent()
+    p.kid = Child(name="damien")
 
-    def test_simple(self):
-        class Child(Strongbox):
-            name = attr(str)
-        class Parent(Strongbox):
-            kid = link(Child)
-        p = Parent()
-        p.kid = Child(name="damien")
         
+@narr.testcase
+def test_typing(self):
+    class LinkedListMember(Strongbox):
+        next = link(lambda : LinkedListMember)
 
-    def test_typing(self):
-        class LinkedListMember(Strongbox):
-            next = link(forward)
-        LinkedListMember.next.type=LinkedListMember
+    class NonMember(Strongbox):
+        pass
 
-        class NonMember(Strongbox):
-            pass
+    class NotEvenAStrongbox:
+        pass
 
-        class NotEvenAStrongbox:
-            pass
-        
-        one = LinkedListMember()
-        two = LinkedListMember()
-        bad = NonMember()
+    one = LinkedListMember()
+    two = LinkedListMember()
+    bad = NonMember()
 
-        one.next = two
-        two.next = one
-        assert one.next.next is one
+    one.next = two
+    two.next = one
+    assert one.next.next is one
 
-        failed = 0
-        for item in (bad, NotEvenAStrongbox(), "wrong type"):
-            try:
-                one.next = item
-            except TypeError:
-                failed += 1
-        assert failed == 3, "Link should force types"
+    failed = 0
+    for item in (bad, NotEvenAStrongbox(), "wrong type"):
+        try:
+            one.next = item
+        except TypeError:
+            failed += 1
+    assert failed == 3, "Link should force types"
 
-        two = LinkedListMember()
-        one = LinkedListMember(next=two)
-        assert one.next is two
-        assert two.next is None
+    two = LinkedListMember()
+    one = LinkedListMember(next=two)
+    assert one.next is two
+    assert two.next is None
 # ** code
 class link(attr):
     """
@@ -339,12 +390,10 @@ class link(attr):
         self.okay = None
         self.allowNone = 1
 
-    def _typeok(self, value):
-        return isinstance(value, self.type)
     
-# * TypedList
-# ** no tests yet :(
-# ** code
+
+# * One-to-Many Relationships with <code>linkset</code>
+# ** TypedList
 class TypedList(list):
     
     def __init__(self, klass, owner, backlink):
@@ -368,64 +417,57 @@ class TypedList(list):
     def __lshift__(self, other):
         self.append(other)
         return other
-# * linkset
+
 # ** test
 
+@narr.testcase
+def test_simple_linkset(self):
 
-class LinkSetTest(unittest.TestCase):
+    class Child(Strongbox):
+        mama = link(lambda : Parent)
+        name = attr(str)
+    class Parent(Strongbox):
+        kids = linkset(Child, "mama")
 
-    def test_simple(self):
-
-        class Child(Strongbox):
-            mama = link(forward)
-            name = attr(str)
-        class Parent(Strongbox):
-            kids = linkset(Child, "mama")
-        Child.mama.type=Parent
-
-        p = Parent()
-        c = Child(name="freddie jr")
-        p.kids << c
-        assert p.kids[0] is c
-        assert c.mama is p
-
-    def test_typing(self):
-
-        
-        class Node(Strongbox):
-            kids = linkset(forward, None)
+    p = Parent()
+    c = Child(name="freddie jr")
+    p.kids << c
+    assert p.kids[0] is c
+    assert c.mama is p
 
 
-        class NonNode:
-            pass
+@narr.testcase
+def test_typing(self):
 
-        # should not be able to instantiate until we change the "forward" 
-        self.assertRaises(ReferenceError, Node)
-        Node.kids.type = Node
-        
-        # now it should work:
-        top = Node()
-        assert top.kids == [], str(top.kids)
 
-        try:
-            top.kids = []
-            gotError = 0
-        except AttributeError:
-            gotError = 1
-        assert gotError, "should get error assigning to linkset."
+    class Node(Strongbox):
+        kids = linkset(lambda : Node, None)
 
-        kidA = Node()
-        kidB = Node()
 
-        # I like this syntax better for append...
-        top.kids << kidA
-        top.kids << kidB
-        assert len(top.kids) == 2
-        assert top.kids[1] == kidB
+    class NonNode:
+        pass
 
-        self.assertRaises(TypeError, top.kids.append, NonNode())
-        self.assertRaises(TypeError, top.kids.__lshift__, NonNode())
-        
+    top = Node()
+    assert top.kids == [], str(top.kids)
+
+    try:
+        top.kids = []
+        gotError = 0
+    except AttributeError:
+        gotError = 1
+    assert gotError, "should get error assigning to linkset."
+
+    kidA = Node()
+    kidB = Node()
+
+    # I like this syntax better for append...
+    top.kids << kidA
+    top.kids << kidB
+    assert len(top.kids) == 2
+    assert top.kids[1] == kidB
+
+    self.assertRaises(TypeError, top.kids.append, NonNode())
+    self.assertRaises(TypeError, top.kids.__lshift__, NonNode())
 # ** code
 class linkset(attr):
 
@@ -445,147 +487,95 @@ class linkset(attr):
         self.back = back      
 
     def initialValue(self, instance):
-        if self.type == forward:
-            raise ReferenceError, \
-                  "Can't instantiate -- broken linkset(forward) promise."
-        else:
-            return TypedList(self.type, instance, self.back)
+        self.stripLambda()
+        return TypedList(self.type, instance, self.back)
 
     def sanitize(self, other):
-        raise AttributeError, "can't assign to linksets (only append/delete)"
-# * Private
+        raise AttributeError("can't assign to linksets (only append/delete)")
+
+
+# * Private variables
 class Private(object):
     """
-    This is just a plain old object. We create
-    an instance on each StrongBox for storing
-    private data. 
+    This is just a plain old empty class.
+    We create an instance on each StrongBox for storing private data. 
     """
-    def __init__(self):
-        pass
-# * BoxMaker: the brains behind MetaBox
-# ** no test yet :(
-# ** code
-class BoxMaker(object):
-    """
-    This is where the real work of MetaBox is done.
-    It's just a normal object that builds a class.
-    
-    I separated it out because I wanted to hold
-    some state information through the various
-    phases of building the class:
 
-    There are three passes:
-
-       1. MetaBox.__new__ calls BoxMaker.start()
-          which returns a new class
-          
-       2. MetaBox.__init__ calls BoxMaker.finish()
-          which adds some magic property accesors
-
-       3. StrongBox.__init__() then does some
-          perfectly normal intitialization stuff
-       
-    """
-    def __init__(self, type, name, bases, dict):
-        self.type = type
-        self.name = name
-        self.bases = bases
-        self.dict = dict
-        self.attrs = [a for a in dict if isinstance(dict[a], attr)]
-        self.slots = ["private"]
-
-        self.addSlots()
-        self.addAttrs()
-
-    ## first pass (__new__): ################################
-
-    def start(self):
-        klass = type.__new__(self.type, self.name, self.bases, self.dict)
-        klass.maker = self
-        return klass
-
-    def addSlots(self):
-        for a in self.attrs:
-            self.slots.append(a)
-        self.dict["__slots__"] = self.slots
-
-    def addAttrs(self):
-        """
-        this is really just for backwards compatability
-        """
-        attrs = {}
-        for b in self.bases:
-            if hasattr(b, "__attrs__"):
-                attrs.update(b.__attrs__)
-        for a in self.attrs:
-            attrs[a] = self.dict[a]
-            attrs[a].__name__ = a
-        self.dict["__attrs__"] = attrs
-
-    ## second pass (__init__) ###############################
-
-    def finish(self, klass):
-        self.addAccessors(klass)
-        self.addAttrOwners(klass)
-
-    def addAttrOwners(self, klass):
-        for a in self.attrs:
-            getattr(klass, a).__owner__ = klass
-
-    def makeGetter(self, klass, slot):
-        def getter(instance):
-            instance.onGet(slot)
-            return getattr(instance.private, slot)
-        return getter
-
-    def makeSetter(self, klass, slot):
-        def setter(instance, val):
-            val = getattr(klass, slot).sanitize(val)
-            setattr(instance.private, slot, val)
-            instance.onSet(slot, val)
-        return setter
-        
-    def addAccessors(self, klass):
-        props = {}
-        
-        # first get all the attributes:
-        for a in self.attrs:
-            props[a] = self.dict[a]
-
-        # next, the getters and setters:
-        getter = {}
-        setter = {}
-        for item in self.dict:
-            slot = item[4:]
-            if item.startswith("get_"):
-                getter[slot] = self.dict[item]
-                if slot not in self.attrs:
-                    self.slots.append(slot)
-            elif item.startswith("set_"):
-                setter[slot] = self.dict[item]
-                if slot not in self.attrs:
-                    self.slots.append(slot)
-            else:
-                continue
-            props.setdefault(slot, property())
-
-        # now make the accessors:
-        for slot in props:
-            prop = props[slot]
-            
-            fget = getter.get(slot)
-            if (slot in self.attrs) and (not fget):
-                fget = self.makeGetter(klass, slot)
-                
-            fset = setter.get(slot)
-            if (slot in self.attrs) and (not fset):
-                fset = self.makeSetter(klass, slot)
-
-            # this is the only way you can set .fget and .fset:
-            property.__init__(prop, fget, fset)
-            setattr(klass, slot, prop)
 # * MetaBox
-# ** test
+class MetaBox(type):
+    """
+    This is a metaclass. It's used to build a
+    new strongbox subclass, which can then be
+    instantiated.
+
+    It's just a normal object that builds a class.       
+    For an overview of metaclasses, see:
+    
+        http://www.python.org/2.2.3/descrintro.html#metaclasses
+
+    You should not use this class directly.
+    Rather, subclass StrongBox.
+    """
+    def __init__(klass, name, bases, dict):
+        klass.dict = dict
+        klass.attrs = [k for k in dict if isinstance(dict[k], attr)]
+        klass.tellAttributesTheirNames()
+        klass.addAccessors()
+        klass.addCalculatedFields()
+
+    def tellAttributesTheirNames(klass):
+        # this is so attrs can report their
+        # names during errors.
+        for slot in klass.attrs:
+            klass.dict[slot].name = slot
+            klass.dict[slot].__name__ = slot
+                   
+    def addAccessors(klass):
+        for slot in klass.attrs:
+
+            getter = klass.dict.get("get_%s" % slot)
+            setter = klass.dict.get("set_%s" % slot)
+
+            # __init__ is the only way to change .fset and .fget:
+            prop = klass.dict[slot]
+            if getter or setter or prop.__class__ in [link,linkset]:
+                property.__init__(prop,
+                                  getter or prop.wrapGetter,
+                                  setter or prop.wrapSetter)
+
+    def addCalculatedFields(klass):
+        # traditional properties
+        for name in klass.dict:            
+            if name.startswith("get_"):
+                slot = name[4:]
+                if slot not in klass.attrs:
+                    setattr(klass, slot, property(klass.dict[name]))
+
+@narr.testcase
+def test_calculated_fields(test):
+    class Foo(Strongbox):        
+        def get_x(self):
+            return 5
+
+    f = Foo()
+    assert f.x == 5
+
+@narr.testcase
+def test_custom_getter(test):
+    class Foo(Strongbox):
+        counter = attr(int)
+        def get_counter(self):
+            self.private.counter += 1
+            return self.private.counter
+    f = Foo()
+    assert f.counter == 1
+    assert f.counter == 2
+    assert f.counter == 3
+    f.counter = 0
+    assert f.counter == 1
+
+    
+# * MetaBoxTest : trash?
 
 class MetaBoxTest(unittest.TestCase):
     def test_simple(self):
@@ -598,7 +588,6 @@ class MetaBoxTest(unittest.TestCase):
         assert isinstance(Person.name, attr)
         assert Person.name.okay == ['fred','wanda']
         assert Person.name.__name__ == "name"
-        assert Person.name.__owner__ == Person
 
         """
         That's really about all we can test here.
@@ -614,220 +603,191 @@ class MetaBoxTest(unittest.TestCase):
         or StrongBox instead of using MetaBox
         directly.
         """
-# ** code
-class MetaBox(type):
-    """
-    This is a metaclass. It's used to build a
-    new strongbox subclass, which can then be
-    instantiated.
+   
 
-    For an overview of metaclasses, see:
-    
-        http://www.python.org/2.2/descrintro.html
-
-    You should not use this class directly.
-    Rather, subclass StrongBox.
-
-    The real work of this metaclass is in BoxMaker.
-    """
-    def __new__(meta, name, bases, dict):
-        """
-        This is where we create the new class. 
-
-        meta: always a reference to MetaBox (this class)
-        name: the name of the class being defined
-        bases: tuple of base classes
-        dict: namespace with the 'class' contents (defs, attributes, etc)
-        """
-        return BoxMaker(meta, name, bases, dict).start()
-    
-    def __init__(klass, name, bases, dict):
-        """
-        now that we have the class, we can do stuff to it.
-        in this case, we'll add accessor methods.
-
-        same args as above, except now we get the
-        class instead of the metaclass
-        """
-        super(MetaBox, klass).__init__(name, bases, dict)
-        klass.maker.finish(klass)
 # * BlackBox
-# ** test
-
+# ** blackbox test: .private
+"""
     ## Private variables are explicitly private
 
     # All strongbox instances have a "private" namespace, which
     # lets them store private variables explicitly.
+"""
+@narr.testcase
+def test_private(self):
+    s = BlackBox()
+    assert hasattr(s, "private")
+    s.private.c = 1
+    assert s.private.c == 1
+    assert getattr(s, "c", None) is None
+# ** attr test: default values
+## Attributes have defaults, but can be initialized via the constructor
+@narr.testcase    
+def test_defaults(self):
+    class Foo(BlackBox):
+        bar = attr(int, default=5)  
+    foo = Foo()
+    assert foo.bar ==5
+# ** strongbox test: overriding defaults in the constructor
+@narr.testcase    
+def test_constructor(self):
+    class Foo(BlackBox):
+        bar = attr(int, default=5)  
+    foo = Foo(bar=12)
+    assert foo.bar == 12
+# ** attr test: implicit defaults
+## Without explicit defaults, strings default to '', ints and longs to 0
 
-    def test_private(self):
-        s = BlackBox()
-        assert hasattr(s, "private")
-        s.private.c = 1
-        assert s.private.c == 1
-        assert getattr(s, "c", None) is None
+@narr.testcase
+def test_default_defaults(self):
+    class Foo(BlackBox):
+        m_str = attr(str)
+        m_int = attr(int)
+        m_long = attr(float)
+        m_float = attr(float)
+        n_int = attr(int, default=None)
+        n_str = attr(str, default=None)
+    foo = Foo()
+    assert foo.m_str == ''
+    assert foo.m_int == 0
+    assert foo.m_long == 0
+    assert foo.m_float == 0
+    assert foo.n_int is None
+    assert foo.n_str is None
+# ** attr test: explicit defaults
+## Other types pass defaults to the constructor  
+@narr.testcase
+def test_othertypes(self):
+    class UpCase:
+        def __init__(self, value): self.value = str(value).upper()
+        def __cmp__(self, other): return cmp(self.value, other)
+        def __repr__(self): return value
+    class Foo(BlackBox):
+        bar = attr(UpCase, default="xyz")
+        abc = attr(str, default="xyz")
+    foo = Foo()
+    assert foo.bar == "XYZ", foo.bar
+    assert foo.abc == "xyz", foo.abc
+# ** attr test: runtime type checking
 
+## Attributes use (runtime) static typing   
+@narr.testcase
+def test_static_typing(self):
+    class Foo(BlackBox):
+       bar = attr(int)
+    foo = Foo()
+    try:
+       goterr = 0
+       foo.bar = "not an int value"
+    except TypeError:
+       goterr = 1
+    assert goterr, "should get TypeError assigning string to int attr"
+    
+# ** attr test: okay=lambda
+@narr.testcase
+def test_okay_lambda(self):
+    class Foo(BlackBox):
+        bar = attr(int, lambda x: 5 < x < 10)
+    foo = Foo()
+    foo.bar = 7 # should work
+    try:
+       goterr = 0
+       foo.bar = 10
+    except ValueError:
+        goterr = 1
+    assert goterr, "the lambda should have rejected bar=10"
+    
+# ** attr test: okay=list
+@narr.testcase
+def test_okay_list(self):
+    class Paint(BlackBox):
+        color = attr(str, ["red", "green", "blue"])
+    p = Paint()
+    p.color = "red" # should work
+    try:
+        goterr = 0
+        p.color = "orange"
+    except ValueError:
+        goterr = 1
+    assert goterr, "values not in the list should be rejected"
+# ** attr test: okay=regexp
+@narr.testcase
+def test_okay_regexp(self):
+    class UsCitizen(BlackBox):
+        ssn = attr(str, r"\d{3}-?\d{2}-?\d{4}")
 
-    ## Attributes have defaults, but can be initialized via the constructor
-    
-    def test_defaults(self):
-        class Foo(BlackBox):
-            bar = attr(int, default=5)  
-        foo = Foo()
-        assert foo.bar ==5
-    
-    def test_constructor(self):
-        class Foo(BlackBox):
-            bar = attr(int, default=5)  
-        foo = Foo(bar=12)
-        assert foo.bar == 12
+    elmer = UsCitizen()
+    elmer.ssn = "404-44-4040" # should work
+    try:
+        goterr = 0
+        elmer.ssn = "867-5309"
+    except ValueError:
+        goterr = 1
+    assert goterr, \
+           "ssn regexp should reject phone numbers - even famous ones"
+# ** attr test: allowNone
+## dealing with None / empty strings ########################
 
+@narr.testcase
+def test_allowNone(self):
+    """
+    Attributes allow "None" by default
+    """
+    class Foo(BlackBox):
+       bar = attr(int)
+    foo = Foo()
+    try:
+       goterr = 0
+       foo.bar = None
+    except ValueError:
+       goterr = 1
+    assert not goterr, "assigning None didn't work!"    
 
-    ## Without explicit defaults, strings default to '', ints and longs to 0
+@narr.testcase
+def test_dontAllowNone(self):
+    """
+    We can disallow None if we want.
+    """
+    class Foo(BlackBox):
+       bar = attr(int,allowNone=0)
+    foo = Foo(bar=15)
+    try:
+       goterr = 0
+       foo.bar = None
+    except ValueError:
+       goterr = 1
+    assert goterr, "assigning None should have failed!"
+# ** attr test: empty strings convert to none
+@narr.testcase
+def test_emptyString(self):
+    """
+    Should convert empty strings to None, unless
+    it actually IS a string. This is so we can
+    pass None in from an HTML form.
 
-    def test_default_defaults(self):
-        class Foo(BlackBox):
-            m_str = attr(str)
-            m_int = attr(int)
-            m_long = attr(float)
-            m_float = attr(float)
-            n_int = attr(int, default=None)
-            n_str = attr(str, default=None)
-        foo = Foo()
-        assert foo.m_str == ''
-        assert foo.m_int == 0
-        assert foo.m_long == 0
-        assert foo.m_float == 0
-        assert foo.n_int is None
-        assert foo.n_str is None
+    Really, I don't think the browser should send an
+    empty string, but IE5.00.2614.3500 sure seems to,
+    so let's deal with it. :)
+    """
+    class Foo(BlackBox):
+        i = attr(int)
+        s = attr(str)
+        d = attr(Date)
+    f = Foo()
+    f.i = ""; assert f.i is None
+    f.s = ""; assert f.s is ""
+    f.d = ""; assert f.d is None
 
-    ## Other types pass defaults to the constructor
-    
-    def test_othertypes(self):
-        class UpCase:
-            def __init__(self, value): self.value = str(value).upper()
-            def __cmp__(self, other): return cmp(self.value, other)
-            def __repr__(self): return value
-        class Foo(BlackBox):
-            bar = attr(UpCase, default="xyz")
-            abc = attr(str, default="xyz")
-        foo = Foo()
-        assert foo.bar == "XYZ", foo.bar
-        assert foo.abc == "xyz", foo.abc
-
-
-    ## Attributes use (runtime) static typing
-    
-    def test_static_typing(self):
-        class Foo(BlackBox):
-           bar = attr(int)
-        foo = Foo()
-        try:
-           goterr = 0
-           foo.bar = "not an int value"
-        except TypeError:
-           goterr = 1
-        assert goterr, "should get TypeError assigning string to int attr"
-    
-    
-    def test_okay_lambda(self):
-        class Foo(BlackBox):
-            bar = attr(int, lambda x: 5 < x < 10)
-        foo = Foo()
-        foo.bar = 7 # should work
-        try:
-           goterr = 0
-           foo.bar = 10
-        except ValueError:
-            goterr = 1
-        assert goterr, "the lambda should have rejected bar=10"
-    
-    
-    def test_okay_list(self):
-        class Paint(BlackBox):
-            color = attr(str, ["red", "green", "blue"])
-        p = Paint()
-        p.color = "red" # should work
-        try:
-            goterr = 0
-            p.color = "orange"
-        except ValueError:
-            goterr = 1
-        assert goterr, "values not in the list should be rejected"
-    
         
-    def test_okay_regexp(self):
-        class UsCitizen(BlackBox):
-            ssn = attr(str, r"\d{3}-?\d{2}-?\d{4}")
-        
-        elmer = UsCitizen()
-        elmer.ssn = "404-44-4040" # should work
-        try:
-            goterr = 0
-            elmer.ssn = "867-5309"
-        except ValueError:
-            goterr = 1
-        assert goterr, \
-               "ssn regexp should reject phone numbers - even famous ones"
-
-
-    ## dealing with None / empty strings ########################
-    
-    def test_allowNone(self):
-        """
-        Attributes allow "None" by default
-        """
-        class Foo(BlackBox):
-           bar = attr(int)
-        foo = Foo()
-        try:
-           goterr = 0
-           foo.bar = None
-        except ValueError:
-           goterr = 1
-        assert not goterr, "assigning None didn't work!"    
-   
-    def test_dontAllowNone(self):
-        """
-        We can disallow None if we want.
-        """
-        class Foo(BlackBox):
-           bar = attr(int,allowNone=0)
-        foo = Foo(bar=15)
-        try:
-           goterr = 0
-           foo.bar = None
-        except ValueError:
-           goterr = 1
-        assert goterr, "assigning None should have failed!"
-
-    def test_emptyString(self):
-        """
-        Should convert empty strings to None, unless
-        it actually IS a string. This is so we can
-        pass None in from an HTML form.
-
-        Really, I don't think the browser should send an
-        empty string, but IE5.00.2614.3500 sure seems to,
-        so let's deal with it. :)
-        """
-        class Foo(BlackBox):
-            i = attr(int)
-            s = attr(str)
-            d = attr(Date)
-        f = Foo()
-        f.i = ""; assert f.i is None
-        f.s = ""; assert f.s is ""
-        f.d = ""; assert f.d is None
-
-        
-
-    def test_inheritance(self):
-        class Dad(BlackBox):
-            nose = attr(str, default="big")
-        class Son(Dad):
-            pass
-        assert Son().nose == "big"
-# ** code
+# ** test inheritance
+@narr.testcase
+def test_inheritance(self):
+    class Dad(BlackBox):
+        nose = attr(str, default="big")
+    class Son(Dad):
+        pass
+    assert Son().nose == "big"
+# ** constructor
 """
 I thought about factoring out a
 BaseBox... But I just couldn't
@@ -836,36 +796,127 @@ the name BlackBox better.
 """
 class BlackBox(object):
     __metaclass__ = MetaBox
-    
     def __init__(self, **kwargs):
         self.__private__()
-        for slot, attr in self.__attrs__.items():
-            setattr(self.private, slot, attr.initialValue(self))
+        for name, attr in self.getSlots():
+            setattr(self.private, name, attr.initialValue(self))
         self.update(**kwargs)
 
-    def __private__(self):
-        self.private = Private()        
+    def __setattr__(self, slot, value):
+        # for some reason, hasattr(self, slot) causes problems for injectors
+        # i'm not sure why. in any case, this will do for now.
+        if slot == "private" or hasattr(self.__class__, slot):
+            super(BlackBox, self).__setattr__(slot, value)
+        else:
+            raise AttributeError("can't set attribute %s on class %s" %
+                                 (slot, self.__class__.__name__))
+                                 
+        
+# ** .private
+@narr.addMethod(BlackBox)
+def __private__(self):
+    self.private = Private()        
+# ** update()
+@narr.addMethod(BlackBox)
+def update(self, **kwargs):
+    for k in kwargs:
+        setattr(self, k, kwargs[k])
 
-    def update(self, **kwargs):
-        for k in kwargs:
-            setattr(self, k, kwargs[k])
+@narr.testcase
+def test_noisyUpdate(test):
+    class Foo(BlackBox):
+        a = attr(int)
+        b = attr(int)
 
-    def onSet(self, slot, value):
-        pass
-
-    def onGet(self, slot):
-        pass
-
-    def __repr__(self):
-        # for linksets and in other cases where objects refer
-        # back to each other, this could create an infinite loop,
-        # so we only show plain attributes.
-        return "%s(%s)" % (self.__class__.__name__ ,
-                           ", ".join(["%s=%s" % (a, getattr(self, a))
-                                      for a,v in self.__attrs__.items()
-                                      if v.__class__ is Attribute]))
+    f = Foo()
+    f.noisyUpdate(a=1, b=2, c=3, d=4)
+    assert f.a == 1
+    assert f.b == 2
     
 
+@narr.addMethod(BlackBox)
+def noisyUpdate(self, **kwargs):
+    for k in kwargs:
+        if k in self.__class__.dict:
+            setattr(self, k, kwargs[k])
+        
+# ** hooks
+@narr.addMethod(BlackBox)
+def onSet(self, slot, value):
+    pass
+#super(BlackBox, self).onSet(slot, value)
+
+@narr.addMethod(BlackBox)
+def onGet(self, slot):
+    pass
+#super(BlackBox, self).onGet(value)
+
+#@TODO: onDel ???
+# **  __repr__
+@narr.addMethod(BlackBox)
+def __repr__(self):
+    # for linksets and in other cases where objects refer
+    # back to each other, this could create an infinite loop,
+    # so we only show plain attributes.
+    return "%s(%s)" % (self.__class__.__name__ ,
+                       ", ".join(["%s=%s" % (a, getattr(self, a))
+                                  for a,v in self.attributeValues()]))
+    
+# ** getSlotsOfType
+@narr.testcase
+def test_getSlots(test):
+    class Fee(Strongbox):
+        x = attr(str)
+    class Foo(Strongbox):
+        a = attr(str)
+        b = attr(int)
+        c = link(Fee)
+
+    foo = Foo()
+    test.assertEquals([("a", Foo.a), ("b", Foo.b), ("c", Foo.c)],
+                      list(foo.getSlots()))
+    test.assertEquals([("c", Foo.c)], list(foo.getSlotsOfType(link)))
+
+
+@narr.addMethod(BlackBox)
+def getSlots(self):
+    myClass = self.__class__
+    return sorted([(slot, theAttr)                   
+                   for klass in (myClass,) + myClass.__bases__
+                   for slot, theAttr in klass.__dict__.items()
+                   if isinstance(theAttr, attr)])
+
+@narr.addMethod(BlackBox)
+def getSlotsOfType(self, t):
+    return [(slot, attr) for (slot, attr) in self.getSlots()
+            if isinstance(attr, t)]
+# ** attributeValues
+" this is used by clerks"
+@narr.testcase
+def test_values(test):
+    class Other(Strongbox):
+        x = attr(int)
+    class Valuable(Strongbox):
+        a = attr(str)
+        b = attr(int)
+        c = link(Other)
+
+    v = Valuable(a="asdf", b=5)
+    test.assertEquals({"a":"asdf", "b":5}, v.attributeValues())
+    
+    
+@narr.addMethod(BlackBox)
+def attributeValues(self):
+    res = {}
+    for name, prop in self.getSlots():
+        if prop.__class__ == attr:
+            res[name] = getattr(self, name)
+    return res
+
+    
+
+
+# * @TODO: pickling
 ##    ## this stuff is for pickling... but it turns out pickling
 ##    ## is a can of worms when you have injectors lying around.
 ##    ## I think maybe you can use pickle OR clerk but not both.
@@ -881,31 +932,33 @@ class BlackBox(object):
 ##     def __setstate__(self, memento):
 ##         self.__private__()
 ##         self.update(**memento)
-    pass
-# * WhiteBox
-# ** test
-class WhiteBoxTest(unittest.TestCase):
 
-    # we implement the famous Gang of Four Observer pattern:
-    
-    def test_Observable(self):
-        subject = WhiteBox()
-        observer = object()
-        subject.addObserver(observer)
-        assert observer in subject.private.observers
-        subject.removeObserver(observer)
-        assert observer not in subject.private.observers
+
+# * WhiteBox
+# ** test observable
+"""
+we implement the famous Gang of Four Observer pattern:
+"""
+@narr.testcase
+def test_Observable(self):
+    subject = WhiteBox()
+    observer = object()
+    subject.addObserver(observer)
+    assert observer in subject.private.observers
+    subject.removeObserver(observer)
+    assert observer not in subject.private.observers
 
     # Injectable is like Observable, but instead of notifying
     # on set, we notify on get. That's so we can lazy load objects:
-
-    def test_Injectable(self):
-        subject = WhiteBox()
-        injector = object()
-        subject.addInjector(injector)
-        assert injector in subject.private.injectors
-        subject.removeInjector(injector)
-        assert injector not in subject.private.injectors
+# ** test injectable
+@narr.testcase
+def test_Injectable(self):
+    subject = WhiteBox()
+    injector = object()
+    subject.addInjector(injector)
+    assert injector in subject.private.injectors
+    subject.removeInjector(injector)
+    assert injector not in subject.private.injectors
    
 
     # First the setter. Setters are easy. This is very useful for
@@ -914,31 +967,32 @@ class WhiteBoxTest(unittest.TestCase):
     # 
     # As such, the events are fired AFTER the value is set
     # in the object. (Contrast to getter events, below...)
+# ** test observable some more
+@narr.testcase
+def test_set_event(self):
+    class Observer:
+        def __init__(self):
+            self.updated = False
+        def update(self, subject, name, value):
+            self.updated = True
+            self.name = name
+            self.value = value
+    class Subject(WhiteBox):
+        name = attr(str)
 
-    def test_set_event(self):
-        class Observer:
-            def __init__(self):
-                self.updated = False
-            def update(self, subject, name, value):
-                self.updated = True
-                self.name = name
-                self.value = value
-        class Subject(WhiteBox):
-            name = attr(str)
+    # first, try with no observers:
+    sub = Subject()
+    sub.name='wilbur'
+    assert sub.name=='wilbur', sub.name
 
-        # first, try with no observers:
-        sub = Subject()
-        sub.name='wilbur'
-        assert sub.name=='wilbur', sub.name
-
-        # now add an observer:
-        obs = Observer()
-        assert not obs.updated
-        sub.addObserver(obs.update)
-        sub.name = "fred"
-        assert obs.updated, "observer should have been updated on setattr"
-        assert obs.name == "name"
-        assert obs.value == "fred"
+    # now add an observer:
+    obs = Observer()
+    assert not obs.updated
+    sub.addObserver(obs.update)
+    sub.name = "fred"
+    assert obs.updated, "observer should have been updated on setattr"
+    assert obs.name == "name"
+    assert obs.value == "fred"
     
 
     # Getters, on the other hand are useful for lazy loading.
@@ -946,57 +1000,54 @@ class WhiteBoxTest(unittest.TestCase):
     # 
     # Of course, you couldn't call anything after you returned
     # a value anyway :)
-
-    def test_get_event(self):
-        class Injector:
-            def __init__(self):
-                self.called = 0
-            def getter_called(self, subject, name):
-                self.called += 1
-                self.name = name
-                subject.name = "wilma"
-        class Subject(WhiteBox):
-            name = attr(str)
-        inj = Injector()
-        sub = Subject(name="wanda")
-        sub.addInjector(inj.getter_called)
-        value = sub.name
-        assert inj.called==1, \
-               "should have been called 1 time (vs %i)" % inj.called
-        assert inj.name == "name"
-        assert value == "wilma", value
-
-    def test_isDirty(self):
-        """
-        this is for arlo...
-        """
-        class Dirt(WhiteBox):
-            x = attr(str)
-        d = Dirt()
-        # we start out dirty so that we get saved
-        # (even if we're blank!)
-        assert d.private.isDirty
-        d = Dirt(x="dog")
-        assert d.private.isDirty
-
-        # but if something marks us clean, and then
-        # we change, we should be dirty again!
-        d.private.isDirty = 0
-        d.x = "cat"
-        assert d.private.isDirty
-# ** code
-class WhiteBox(BlackBox):
+# ** test injectable some more?
+@narr.testcase
+def test_get_event(self):
+    class Injector:
+        def __init__(self):
+            self.called = 0
+        def getter_called(self, subject, name):
+            self.called += 1
+            self.name = name
+            subject.name = "wilma"
+    class Subject(WhiteBox):
+        name = attr(str)
+    inj = Injector()
+    sub = Subject(name="wanda")
+    sub.addInjector(inj.getter_called)
+    value = sub.name
+    assert inj.called==1, \
+           "should have been called 1 time (vs %i)" % inj.called
+    assert inj.name == "name"
+    assert value == "wilma", value
+# ** test private.isDirty
+@narr.testcase
+def test_isDirty(self):
     """
-    Base class for observable, injectable data
-    objects with runtime type checking.
+    this is for arlo...
+    """
+    class Dirt(WhiteBox):
+        x = attr(str)
+    d = Dirt()
+    # we start out dirty so that we get saved
+    # (even if we're blank!)
+    assert d.private.isDirty
+    d = Dirt(x="dog")
+    assert d.private.isDirty
+
+    # but if something marks us clean, and then
+    # we change, we should be dirty again!
+    d.private.isDirty = 0
+    d.x = "cat"
+    assert d.private.isDirty
+# ** Observable 
+class Observable(object):
+    """
+    i can notify other classes of changes
     """
     def __private__(self):
-        self.private = Private()
-        self.private.isDirty = True # so new objects get saved
         self.private.observers = []
-        self.private.injectors = []
 
-    ## for notifying other classes of changes:
     def addObserver(self, callback):
         self.private.observers.append(callback)
     def removeObserver(self, callback):
@@ -1008,6 +1059,17 @@ class WhiteBox(BlackBox):
     def onSet(self, slot, value):
         self.notifyObservers(slot, value)
         self.private.isDirty = True
+# ** WhiteBox/Injectable
+class WhiteBox(Observable, BlackBox):
+    """
+    Base class for observable, injectable data
+    objects with runtime type checking.
+    """
+    def __private__(self):
+        self.private = Private()
+        self.private.isDirty = True # so new objects get saved
+        super(WhiteBox, self).__private__()
+        self.private.injectors = []
 
     ## for lazy loading, etc:
     def addInjector(self, callback):
@@ -1021,9 +1083,9 @@ class WhiteBox(BlackBox):
     def onGet(self, slot):
         self.notifyInjectors(slot)
         
-# * BoxView
-# ** no tests yet :(
-# ** code
+
+
+# * BoxView - @TODO: is this trash?
 """
 note: this was moved here from zdc. It's useful for
 zebra templates, but it's not really integrated
@@ -1068,7 +1130,7 @@ class BoxView:
         return getattr(self.object, name, default)
 
     def keys(self):
-        return self.object.__slots__
+        return [k for k, v in self.object.getSlots()]
         #@TODO: ObjectView.keys() only works with RecordObjects
         #map(lambda fld: fld.name, self.object._table.fields) \
         #return self.object.__values__.keys() \
@@ -1076,6 +1138,7 @@ class BoxView:
                # NOTE: i was only doing the tuple thing
                #       because of zikeshop.Product
 
+pass
 # * Strongbox = WhiteBox
 Strongbox = WhiteBox
 # * --
