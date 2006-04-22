@@ -525,7 +525,6 @@ def replace(f):
     return f
 
 
-
 # * <a name="already">Using @addMethod on a Method That's Already There</a>
 """
 <p>Let's try out our new <code>@replace</code> decorator by
