@@ -31,7 +31,7 @@ import unittest
 import warnings
 
 
-# * - Implementation -
+# * - specification -
 """
 <p>The classes in the previous section will be <strong>extended
 dynamically</strong> throughout this document.</p>
@@ -728,7 +728,7 @@ def test_isDirty(self):
     assert d.private.isDirty
 
 
-# * Class Definitions
+# * - implementation -
 # ** attr
 Unspecified = object() # just a type distinct from None
 
@@ -1226,21 +1226,3 @@ pass
 """
 if __name__=="__main__":
     unittest.main()
-   
-"""
-<pre style="display:none">
-extract Attr for forceLambda in link, linkset
-  
-- is it possible to make attributes usable from any class?
-  no.
-  why not?
-  - setattr(instance, attr.name, value) needs to know the
-    attribute's name, and that doesn't work without the
-    meta class
-
-- why do we need the metaclass?
-  - it tells attributes their names
-  
-  - magic getters and setters -> @accessor ?
-</pre>
-"""
