@@ -24,6 +24,7 @@ and test cases.</p>
 """
 # * Dependencies
 
+# requires python 2.4+
 from types import StringType, LambdaType, ListType, NoneType
 import narrative as narr
 import re
@@ -406,7 +407,7 @@ def test_okay_lambda(test):
     
     
 
-# ** Accessors
+# * Accessors
 """
 <p>Methods named <strong><code>get_xxx</code> and
 <code>set_xxx</code></strong> are magically understood to
@@ -443,8 +444,8 @@ def test_custom_getter(test):
     assert f.counter == 1
     
 
-# ** Defining Relationships Between Data Classes
-# *** <code>link</code>
+# * Defining Relationships Between Data Classes
+# ** <code>link</code>
 # **** 
 @narr.testcase
 def test_simple(self):
@@ -487,7 +488,7 @@ def test_typing(self):
     one = LinkedListMember(next=two)
     assert one.next is two
     assert two.next is None
-# *** <code>linkset</code>
+# ** <code>linkset</code>
 # **** add to the set with <code>&lt;&lt;</code>
 """
 <p>Use <code>&lt;&lt;</code> to append to a linkset.</p>
@@ -542,7 +543,7 @@ def test_typing(self):
 
     
             
-# *** Use <code>lambda</code> for Forward Declarations
+# ** Use <code>lambda</code> for Forward Declarations
 """
 <p>Any attribute can wrap its type in a
 <strong>no-argument <code>lambda</code></strong>,
@@ -566,7 +567,7 @@ def test_forward_links(test):
         
    
     
-# ** Attributes are Inheritable
+# * Attributes are Inheritable
 """
 <p>Attributes are passed down to subclasses, just like normal
 properties.</p>
@@ -582,13 +583,11 @@ def test_inheritance(self):
         pass
     assert Son().nose == "big"
     
-# ** constructor
-        
-        
-    
-
-# ** introspection support  
-# *** getSlots, getSlotsOfType
+# * introspection support  
+# ** getSlots, getSlotsOfType
+"""
+<p>These methods return a list of name, <code>attr</code> pairs.</p>
+"""
 @narr.testcase
 def test_getSlots(test):
     class Fee(StrongBox):
@@ -602,12 +601,13 @@ def test_getSlots(test):
     test.assertEquals([("a", Foo.a), ("b", Foo.b), ("c", Foo.c)],
                       list(foo.getSlots()))
     test.assertEquals([("c", Foo.c)], list(foo.getSlotsOfType(link)))
-# *** attributeValues
+    
+# ** attributeValues
 """
-this is used by clerks
+<p>The attributeValues() method returns a dict.</p>
 """
 @narr.testcase
-def test_values(test):
+def test_attributeValues(test):
     class Other(StrongBox):
         x = attr(int)
     class Valuable(StrongBox):
@@ -618,10 +618,9 @@ def test_values(test):
     v = Valuable(a="asdf", b=5)
     test.assertEquals({"a":"asdf", "b":5}, v.attributeValues())
     
-
-# ** Observable
+# * Observable
 """
-we implement the famous Gang of Four Observer pattern:
+<p>We implement the famous Gang of Four Observer pattern:</p>
 """
 @narr.testcase
 def test_Observable(self):
@@ -658,17 +657,14 @@ def test_set_event(self):
     assert obs.name == "name"
     assert obs.value == "fred"
     
-# ** Injectable
+# * Injectable
 """
-# Injectable is like Observable, but instead of notifying
-# on set, we notify on get. That's so we can lazy load objects:
+<p>Injectable is like Observable, but instead of notifying
+on set, we notify on get. That's so we can lazy load objects.</p>
 
-    # Getters, on the other hand are useful for lazy loading.
-    # As such, the events get fired BEFORE the value is returned.
-    # 
-    # Of course, you couldn't call anything after you returned
-    # a value anyway :)
-
+<p>As such, the getter events fire BEFORE the value is returned.
+(You couldn't call anything after you returned
+a value anyway)</p>
 """
 @narr.testcase
 def test_Injectable(self):
@@ -706,7 +702,14 @@ def test_get_event(self):
            "should have been called 1 time (vs %i)" % inj.called
     assert inj.name == "name"
     assert value == "wilma", value
+
 # *** private.isDirty
+"""
+<p>There's a bit of metadata called <code>.isDirty</code> that
+says whether or not an object has been changed. This is to make
+it easy to see what's changed when saving data. It's used by
+<code>clerks</code>.</p>
+"""
 @narr.testcase
 def test_isDirty(self):
     """
@@ -1156,9 +1159,14 @@ class StrongBox(Injectable, Observable, BlackBox):
 
 
 
-class Strongbox(StrongBox):
-    pass
+"""
+<p>For old times sake:</p>
+"""
 
+class Strongbox(StrongBox):
+    def __init__(self, **kw):
+        warnings.warn("Strongbox is deprecated: use the upper case B :)")
+        StrongBox.__init__(self, **kw)
 
 
 # ** BoxView
@@ -1209,16 +1217,6 @@ class BoxView:
 
     def keys(self):
         return [k for k, v in self.object.getSlots()]
-        #@TODO: ObjectView.keys() only works with RecordObjects
-        #map(lambda fld: fld.name, self.object._table.fields) \
-        #return self.object.__values__.keys() \
-        #       + self.object._links.keys()
-               # NOTE: i was only doing the tuple thing
-               #       because of zikeshop.Product
-
-pass
-
-
 
 # * --
 """
@@ -1226,3 +1224,6 @@ pass
 """
 if __name__=="__main__":
     unittest.main()
+
+"""
+"""
