@@ -428,6 +428,7 @@ def test_calculated_fields(test):
 
     f = Foo()
     assert f.x == 5
+    assert f.getSlots()[0][0]=="x"
 
 @narr.testcase
 def test_custom_getter(test):
@@ -1092,6 +1093,7 @@ class BlackBox(Strict):
     def __init__(self, **kwargs):
         super(BlackBox, self).__init__()
         for name, attr in self.getSlots():
+            if type(attr) == property: continue
             setattr(self.private, name, attr.initialValue(self))
 
     def __setattr__(self, slot, value):
@@ -1158,7 +1160,7 @@ class BlackBox(Strict):
         return sorted([(slot, theAttr)                   
                        for klass in (myClass,) + myClass.__bases__
                        for slot, theAttr in klass.__dict__.items()
-                       if isinstance(theAttr, attr)])
+                       if isinstance(theAttr, property)])
 
 
     def getSlotsOfType(self, t):
@@ -1227,16 +1229,8 @@ class BoxView:
         # this used to have a try..except block, but it made it
         # very hard to debug!
         res = getattr(self.object, name)
-        try:
-            hasLen = 1
-            len(res)
-        except:
-            hasLen = 0
-        if (hasLen) and (type(res) != str):
-            lst = []
-            for item in res:
-                lst.append(BoxView(item))
-            return lst
+        if isinstance(res, tuple) or isinstance(res, linkset) or isinstance(res, list):
+            return [BoxView(item) for item in res]
         else:
             return res
 
