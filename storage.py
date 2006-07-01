@@ -494,7 +494,9 @@ class MySQLStorage(Storage):
 
     def _getInsertID(self):
         # new way:
-        if hasattr(self.cur, "insert_id"):
+        if hasattr(self.cur, "lastrowid"):
+            return self.cur.lastrowid
+        elif hasattr(self.cur, "insert_id"):
             return self.cur.insert_id()
         elif hasattr(self.cur, "_insert_id"):
             return self.cur._insert_id
