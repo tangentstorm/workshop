@@ -125,8 +125,15 @@ class Foreign(Strongbox):
     ID = attr(long)
     data = attr(str)
 
+    # there's no explicit test for this,
+    # but this is here to make sure that inject
+    # handles stored calculated fields properly
+    def get_calc(self):
+        return 2+2
+    
 class Local(Strongbox):
     ref = link(Foreign)
+    
 
 
 class LinkInjectorTest(TestCase):
@@ -239,7 +246,7 @@ class LinkInjector:
             new = self.clerk.fetch(self.fclass, self.fID).private
 
             # inject the data:
-            for slot, _attr in stub.getSlots():
+            for slot in stub.listWritableSlots():
                 setattr(old, slot, getattr(new, slot))
             old.isDirty = False
 
