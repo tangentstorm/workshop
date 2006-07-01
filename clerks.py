@@ -1,3 +1,4 @@
+#!/usr/bin/env python2.4
 # arlo: consolidated version.
 """
 clerk: an object-relational mapper in literate style
@@ -587,6 +588,28 @@ class ClerkTest(unittest.TestCase):
         except AttributeError:
             self.fail("shouldn't die when columns outnumber attributes")
 
+
+    def test_calculated_columns(self):
+        """
+        Along those lines, if the table caches calculated
+        fields we need to filter them out when we fetch
+        """
+        class Calculated(StrongBox):
+            ID = attr(int)
+            a = attr(int)
+            def get_b(self):
+                return 5
+            c = attr(int)
+        calc = self.clerk.rowToInstance({"ID":0, "a":1,"b":2,"c":3}, Calculated)
+        assert calc.a == 1
+        assert calc.b == 5
+        assert calc.c == 3
+
+        # the point is, b has to be ignored because
+        # normally it raises an error:
+        self.assertRaises(AttributeError, setattr, calc, "b", 2)
+        
+
     def test_dirt(self):
         # dirty by default (already tested in strongbox)
         r = Record()
@@ -740,7 +763,7 @@ class Clerk(object):
         if obj.private.isDirty:
             # then store the data:
             data_from_db = self.storage.store(self.schema.tableForClass(klass), **vals)
-            relevant_columns = self._attr_columns(klass, data_from_db)
+            relevant_columns = self._writable_columns(klass, data_from_db)
             obj.update(**relevant_columns)
         id_has_changed = hasattr(obj,"ID") and (obj.ID != old_id)
 
@@ -786,7 +809,7 @@ class Clerk(object):
 
 
     def rowToInstance(self, row, klass):
-        attrs, othercols = self._attr_and_other_columns(klass, row)
+        attrs, othercols = self._writable_and_other_columns(klass, row)
         obj = self._get_memo(klass, attrs.get("ID"))
         if obj:
             # refresh data, but don't break the cache:
@@ -865,16 +888,18 @@ class Clerk(object):
             #(since it no longer keeps its own reference to the object)
             obj.addInjector(LinkSetInjector(name, self, fclass, column).inject)
 
-    def _attr_columns(self, klass, rec):
-        return self._attr_and_other_columns(klass, rec)[0]
+    def _writable_columns(self, klass, rec):
+        return self._writable_and_other_columns(klass, rec)[0]
 
-    def _attr_and_other_columns(self, klass, rec):
+    def _writable_and_other_columns(self, klass, rec):
         """
         this separates the columns in rec
         """
         attrs, others = {}, {}
+        #@TODO: listWritableSlots probably ought to be a classmethod
+        writables = klass().listWritableSlots()
         for item in rec.keys():
-            if hasattr(klass, item):
+            if item in writables:
                 attrs[item]=rec[item]
             else:
                 others[item]=rec[item]

@@ -601,7 +601,34 @@ def test_getSlots(test):
     test.assertEquals([("a", Foo.a), ("b", Foo.b), ("c", Foo.c)],
                       list(foo.getSlots()))
     test.assertEquals([("c", Foo.c)], list(foo.getSlotsOfType(link)))
-    
+
+
+# ** listWritableSlots
+"""
+<p>Sometimes, you want to cache calculated fields (get_xxx without
+a set_xxx) in a database. If an object-relational mapper such as
+the clerks module wants to load data from columns back into
+the corresponding attributes, there needs to be a way to stop
+it from trying to load data into these calculated fields. We
+can provide such a service through .getWritableSlots</p>
+"""
+@narr.testcase
+def test_listWritableSlots(test):
+    class Foo(StrongBox):
+        a = attr(str)
+        b = attr(int)
+        c = link(lambda: Foo)
+
+    def get_d(self): # readable only
+        return 2
+
+    #@TODCO: handle setters
+
+    foo = Foo()
+    test.assertEquals(["a", "b", "c"],
+                      foo.listWritableSlots())
+
+
 # ** attributeValues
 """
 <p>The attributeValues() method returns a dict.</p>
@@ -1048,6 +1075,7 @@ class MetaBox(type):
 
     def addCalculatedFields(klass):
         # traditional properties
+        # @TODO: we don't handle setters yet
         for name in klass.dict:            
             if name.startswith("get_"):
                 slot = name[4:]
@@ -1067,13 +1095,18 @@ class BlackBox(Strict):
             setattr(self.private, name, attr.initialValue(self))
 
     def __setattr__(self, slot, value):
+        def fail(reason):
+            raise AttributeError("can't set attribute %s on %s instance: %s" %
+                                 (slot, self.__class__.__name__, reason))
         # for some reason, hasattr(self, slot) causes problems for injectors
         # i'm not sure why. in any case, this will do for now.
         if slot == "private" or hasattr(self.__class__, slot):
-            super(BlackBox, self).__setattr__(slot, value)
+            try:
+                super(BlackBox, self).__setattr__(slot, value)
+            except AttributeError, e:
+                fail(str(e))
         else:
-            raise AttributeError("can't set attribute %s on class %s" %
-                                 (slot, self.__class__.__name__))
+            fail('not a member of this class')
 
     def update(self, **kwargs):
         """
@@ -1136,6 +1169,10 @@ class BlackBox(Strict):
         return [(slot, attr) for (slot, attr) in self.getSlots()
                 if isinstance(attr, t)]
 
+    def listWritableSlots(self):
+        return [slot for (slot, attr) in self.getSlots()
+                if attr.fset is not None]
+
     def attributeValues(self):
         """
         Return a dictionary
@@ -1165,7 +1202,7 @@ class StrongBox(Injectable, Observable, BlackBox):
 
 class Strongbox(StrongBox):
     def __init__(self, **kw):
-        warnings.warn("Strongbox is deprecated: use the upper case B :)")
+        #warnings.warn("Strongbox is deprecated: use the upper case B :)")
         StrongBox.__init__(self, **kw)
 
 
@@ -1189,10 +1226,7 @@ class BoxView:
     def __getitem__(self, name):
         # this used to have a try..except block, but it made it
         # very hard to debug!
-        try:
-            res = getattr(self.object, name)
-        except AttributeError:
-            raise AttributeError("couldn't read attribute '%s'" % name)
+        res = getattr(self.object, name)
         try:
             hasLen = 1
             len(res)
