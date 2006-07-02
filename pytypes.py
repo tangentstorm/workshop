@@ -9,6 +9,8 @@ import calendar
 import copy
 import time
 import unittest
+from narrative import testcase
+
 # * imports - optional
 try:
     import mx.DateTime as mxDateTime
@@ -242,7 +244,7 @@ class DateTime:
         return "DateTime('%s')" % self.toUS()
 
     def toDate(self):
-        return Date(self.toUS()[:-9])
+        return Date("%s-%s-%s" % (self.y, self.m, self.d))
     
     def toMx(self):
         "return an mxDateTime if mx is available"
@@ -315,6 +317,14 @@ class DateTest(unittest.TestCase):
         assert Date("1/1/1999").daysInYear() == 365
         assert Date("1/1/2000").daysInYear() == 366 # leap year
         assert Date("1/1/2001").daysInYear() == 365
+
+
+@testcase
+def test_toDate(self):
+    # Date.toDate should return a copy of self
+    assert Date("1/1/2000").toDate() == Date("1/1/2000")
+
+
 # ** code
 class Date(DateTime):
     """
