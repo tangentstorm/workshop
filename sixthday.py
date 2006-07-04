@@ -776,7 +776,7 @@ class AdminApp(App):
             obj = self.clerk.fetch(klass, self.input["ID"])
         else:
             obj = klass()
-        obj.noisyUpdate(self.input)
+        obj.noisyUpdate(**self.input)
         return obj
         
     def _dispatch(self, action):
