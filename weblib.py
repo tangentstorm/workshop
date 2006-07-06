@@ -705,7 +705,7 @@ class Request(object):
         #@TODO: use idxDict for status
         self.assertRaises(Finished,
                           self.response.redirect, "http://www.sabren.com/")
-        assert self.response.headers[0] == ("Status", "303"),\
+        assert self.response.headers[0] == ("Status", "303 Redirect"),\
                "didn't get Status: 303 header on redirect- %s" \
                % self.response.headers
         assert self.response.headers[1] \
@@ -772,7 +772,7 @@ class Response(object):
             self.addHeader("Set-Cookie", key + "=" + value)
 
     def redirect(self, url):
-        self.addHeader("Status", "303")
+        self.addHeader("Status", "303 Redirect")
         self.addHeader("Location", url)
         self.end()
 # * OutputDecorator
