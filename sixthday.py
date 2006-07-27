@@ -301,7 +301,7 @@ class AuthTest(unittest.TestCase):
         Invalid login should show error, display form, and raise Finished.
         """
         req = weblib.RequestBuilder().build(
-            querystring="auth_test_flag=1",
+            querystring="auth_check_flag=1",
             path="/",
             form={"auth_username":"wrong_username",
                   "auth_password":"wrong_password"})
@@ -324,7 +324,7 @@ class AuthTest(unittest.TestCase):
         Valid login should have no side effects.
         """
         req = weblib.RequestBuilder().build(
-            querystring="auth_test_flag=1",
+            querystring="auth_check_flag=1",
             path="/",
             form={"auth_username":"username",
                   "auth_password":"password"})
@@ -427,7 +427,7 @@ class Auth:
             self.logout()
 
         if not self.isLoggedIn:
-            if self._sess._request.query.has_key('auth_test_flag'):
+            if self._sess._request.query.has_key('auth_check_flag'):
                 if self._attemptLogin():
                     self.onLogin() # they're in!
                 else:
@@ -560,7 +560,7 @@ class Auth:
         Returns a string with the current URL and coded querystring.
         This is used for the ACTION property of the login form.
         """
-        res = self._sess._request.path + "?auth_test_flag=1"
+        res = self._sess._request.path + "?auth_check_flag=1"
         for item in self._sess._request.query.keys():
             if item[:5] == "auth_":
                 pass # IGNORE old auth stuff
