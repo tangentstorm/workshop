@@ -500,6 +500,8 @@ class MySQLStorage(Storage):
             return self.cur.insert_id()
         elif hasattr(self.cur, "_insert_id"):
             return self.cur._insert_id
+        elif hasattr(self.cur, "lastrowid"):
+            return self.cur.lastrowid
         else:
             raise Exception("insert_id not found!") 
 
