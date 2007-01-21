@@ -1228,7 +1228,11 @@ class BoxView:
     def __getitem__(self, name):
         # this used to have a try..except block, but it made it
         # very hard to debug!
-        res = getattr(self.object, name)
+        try:
+            res = getattr(self.object, name)
+        except AttributeError, e:
+            raise AttributeError("couldn't read attribute '%s' [%s]" % (name, e))
+
         if isinstance(res, tuple) or isinstance(res, linkset) or isinstance(res, list):
             return [BoxView(item) for item in res]
         else:
