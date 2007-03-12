@@ -1,0 +1,249 @@
+import unittest
+from narrative import testcase
+from clockwork import *
+
+# * clockwork: simple asynchronous programming
+# **    background
+"""
+
+This is basically microthreads:
+
+  - define things to do as generators
+  - yield Control   to give up control
+  - or yield another generator!!
+
+This last one means that your generators
+can spawn sub-generators.
+
+@TODO: allow launching threads without waiting
+
+Usage:
+
+w = Worker()
+w.assign(yourGenerator)
+
+# and then...
+
+if in_loop:
+    w.tick()
+else:
+    w.work()
+
+You want stuff to happen almost at the same time
+but okay to just switch back and forth really fast
+if you take too long at one, then the others lock up
+so try not to do that!
+"""
+
+# * -- implementation --
+# * goal: a simple queue of tasks
+"""
+Our top-level object are called <strong>Workers</strong>. It's
+possible to have as many workers hanging around as you like, but you
+probably only need one per program.
+
+What a Worker does is very simple. It has a <strong>queue of
+work</strong> to do, and it works through the queue as long as there's
+work left to do. Here's how it looks:
+"""
+class WorkerTest(unittest.TestCase):
+    def test(self):
+
+        # Start with a Worker.
+        w = Worker()
+
+        # Create some work.
+        # For example, take this list...
+        x = []
+
+        # And define some work:
+        def doSomething():
+            x.append(123)
+            yield Control # has to be a generator!
+        w.assign(doSomething())
+
+        # Tell the worker to start working.
+        w.work()
+
+        # The work will get done.
+        self.assertEquals([123], x)
+        
+# * goal: microtheading
+"""
+Sometimes there's too much work to do at once so
+we break the work into small pieces. It would be
+great if we could use generators to 'pause' execution
+of our task:
+"""
+class GeneratorTest(unittest.TestCase):
+    def test(self):
+
+        # start with an empty list
+        data = []
+
+        # and create a generator to append data.
+        # generators can be finite:
+        def letters():
+            data.append("a")
+            yield Control
+            data.append("z")
+            yield Control
+
+        # or infinite:
+        def numbers():
+            i = 0
+            while True:
+                i += 1
+                data.append(i)
+                yield Control
+
+        # assign the generators to the worker
+        w = Worker()
+        w.assign(letters())
+        w.assign(numbers())
+
+        # now run.
+        w.doNextTask()
+        self.assertEquals(["a"], data)
+        w.doNextTask()
+        self.assertEquals(["a", 1], data)
+        w.doNextTask()
+        self.assertEquals(["a", 1, "z"], data)
+        w.doNextTask()
+        self.assertEquals(["a", 1, "z", 2], data)
+        # the next task is to dispose of "letters"
+        # so nothing should change in the data:
+        w.doNextTask()
+        self.assertEquals(["a", 1, "z", 2], data) # same!
+        w.doNextTask()
+        self.assertEquals(["a", 1, "z", 2, 3], data)
+        w.doNextTask()
+        self.assertEquals(["a", 1, "z", 2, 3, 4], data)
+
+        
+# * implementing generator support
+"""
+The basic idea here is that generators stay in the queue until they're
+done. That means an infinite generator stays int he queue forever, or
+at least until someone stops the program.
+
+We still want simple tasks to be removed from the queue immediately
+after they are executed, but now we want generators to stick around.
+We'll have to modify Worker to make that happen.
+
+Note that we're <strong>defining Worker as a subclass of the earlier
+version of Worker.</strong> This is a trick to let us build the class
+in stages. It is perfectly legal python syntax, and we will be using
+it repeatedly.
+"""
+
+class CommandTest(unittest.TestCase):
+    def test(self):
+        w = Worker()
+        echo = Command(["/bin/echo", "cat"])
+        w.assign(echo())
+        w.work()
+        self.assertEquals("cat\n", echo.stdout.read())
+        self.assertEquals("", echo.stderr.read())
+
+
+# * wrap() for non-clockwork callers
+"""
+Sometimes we want to call clockwork routines from normal python code.
+
+Because of the odd conventions, a clockwork routine only makes sense
+inside clockwork, so it can only be called by clockwork-aware
+code. But you don't want to cut your features off from all the
+non-clockwork code out there, so there has to be a simple way to take
+a clockwork routine and wrap it so that it can be used by the outside
+world. Well, that's what <code>wrap</code> does.
+"""
+class WrapTest(unittest.TestCase):
+    def test(self):
+        # make a clockwork function:
+        def routine(data):
+            for x in range(4):
+                data.append(x*x)
+                yield Control
+                
+        # without the wrapper, you get the generator:
+        data1 = []
+        assert isinstance(routine(data1), types.GeneratorType)
+        assert data1 == []
+        
+        # but the wrapper actually runs it for you:
+        data2 = []
+        assert wrap(routine(data2)) is None
+        self.assertEquals([0,1,4,9], data2)
+
+
+# * flattening nested generators
+"""
+Suppose we want to use nested generators, but
+our calling context requires a normal generator.
+
+For example, in scarlet, we often want to use
+nesting inside a wsgi generator.
+
+The flatten() routine does this for us.
+"""
+@testcase
+def flatten_test(test):
+
+    def top():
+        yield 1
+        yield kid()
+        yield 3
+
+    def kid():
+        yield 2
+
+    test.assertEquals([1,2,3], list(flatten(top())))
+        
+
+# * return values
+"""
+As of python2.4, there's no easy way to pass a
+value back into a running generator. We could
+probably cook up some evil trickery to pass
+values around on the generator stack, but since
+this problem is likely to go away in python2.5,
+we'll just use the simple trick of passing in
+a result variable. 
+
+Later, once it's implemented, we'll use use
+the new expression form of 'yield':
+
+http://www.python.org/peps/pep-0342.html
+"""
+class ResultTest(unittest.TestCase):
+    def test(self):
+        ret = Result()
+        ret(5)
+        assert ~ret == 5
+        ret((1,2,3))
+        assert ~ret == (1,2,3)
+
+
+
+
+# * @TODO: async sockets
+"""
+asynchronous sockets are not implemented yet.
+when i need to do this, i just leave the http
+request to a child process. 
+"""
+
+# * appendix: competitors
+"""
+  twisted (yuck)
+  http://lgt.berlios.de/#nanothreads
+  http://www.python.org/peps/pep-0342.html
+"""
+
+
+
+# * self tests
+if __name__=="__main__":
+    unittest.main()
+
