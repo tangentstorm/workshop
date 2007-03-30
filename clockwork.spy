@@ -199,7 +199,36 @@ def flatten_test(test):
         yield 2
 
     test.assertEquals([1,2,3], list(flatten(top())))
-        
+
+
+# * passing parameters : encapusalation
+"""
+You may need multiple, parameterized instances
+of a generator stack to behave like normal
+generator functions.
+
+For example, WSGI takes a generator function
+rather than the actual generator object
+because it needs to pass in the http_start
+and environ parameters for each instance.
+
+You can use the @clockwork.encapsulate
+feature to make this happen.
+"""
+@testcase
+def encapsulation(test):
+
+    def repeat(num):
+        for n in range(num):
+            yield num
+
+    @encapsulate
+    def gen(*args):
+        for a in reversed(args):
+            yield repeat(a)
+
+    test.assertEquals([3,3,3,2,2,1], list(gen(1,2,3)))
+
 
 # * return values
 """

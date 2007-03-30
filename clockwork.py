@@ -142,6 +142,16 @@ def flatten(gen):
         else:
             yield n
 
+def encapsulate(genfunc):
+    """
+    Decorator function. Wraps the
+    function with clockwork.flatten.
+    """
+    def wrapped(*args, **kw):
+        return flatten(genfunc(*args, **kw))
+    return wrapped
+
+
 _mainWorker = Worker()
 
 def spawn(gen):
