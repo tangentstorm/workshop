@@ -103,7 +103,7 @@ class App(object):
         try:
             result = self.invokeFeature(feature, req, res)
             if result is None:
-                raise Redirect(self.success[action] % DictWrap(req))
+                raise weblib.Redirect(self.success[action] % DictWrap(req))
             elif isinstance(result,dict) or isinstance(result, Model):
                 model.update(result)
             else:
