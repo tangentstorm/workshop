@@ -4,8 +4,6 @@ import unittest
 from exceptions import Exception
 
 class Model(dict):
-    # for assertions in unit tests:
-    isModel, isRedirect = True, False
     
     def __init__(self, **kwargs):
         super(Model, self).__init__()
@@ -19,19 +17,31 @@ class Model(dict):
 
 
 class Intercept(Exception):
-    def __init__(self, where, error=None, **kwargs):
-         self.where = where
+    def __init__(self, error):
          self.error = error
-         self.data = kwargs
-         self.data["error"]=error
-  
-#@TODO: Redirect should subclass object, not Exception
-#I'd change it now but it's still being thrown in various places
-class Redirect(Exception):
-    # for assertions in unit tests:
-    isModel, isRedirect = False, True
-    def __init__(self, where):
-         self.where = where
+         self.data = {"error":error}
+ 
+
+class DictWrap:
+    """
+    missing values default to '0'
+    use case: checkbox values from a form going into
+    the redirect expression. eg: ?bool=%(bool)s
+    if bool is unchecked, then nothing gets passed in,
+    so a normal dict would raise a keyerror. instead,
+    this just returns a '0'...
+
+    Ideally, the default would be '' or it would be
+    parsed from the __expected__ parameter, but
+    @TODO: the code that handles __expected__ is gone!
+
+    However, since this is currently only used for
+    checkboxes, it does the job...
+    """
+    def __init__(self, d):
+        self.d = d
+    def __getitem__(self, key):
+        return self.d.get(key, '0')
 
 
 class App(object):
@@ -40,6 +50,8 @@ class App(object):
         # @TODO: no default actions!
         self.defaultAction = default
         self.featureSet = {}
+        self.bounceTo = {} # where to go after intercept
+        self.success = {} # or after success
 
     ### default implemenations:
         
@@ -71,7 +83,16 @@ class App(object):
         # possibly on Intercepts
         res.write(str(m))
 
-    ### top-level template method:
+    def onSuccess(self, action, where):
+        self.success[action] = where
+        
+    def onIntercept(self, action, bounceTo):
+        self.bounceTo[action] = bounceTo
+        
+    def whereToGoWhenIntercepted(self, action):
+        return self.bounceTo.get(action)
+
+    ### top-level template method:    
 
     def dispatch(self, req, res):
         
@@ -81,19 +102,19 @@ class App(object):
         model = self.prepareModel(req)
         try:
             result = self.invokeFeature(feature, req, res)
-            if result.isModel:
+            if result is None:
+                raise Redirect(self.success[action] % DictWrap(req))
+            elif isinstance(result,dict) or isinstance(result, Model):
                 model.update(result)
             else:
-                assert result.isRedirect
-                raise result
-        except Redirect, e:
-            raise weblib.Redirect(e.where)
+                raise TypeError, \
+                      "result should be none or Model, not %s" % result
         except Intercept, e:
-            if e.data:
-                model.update(e.data)
-            feature2 = self.buildFeature(e.where)
+            bounceTo = self.whereToGoWhenIntercepted(action)
+            model.update(e.data) # for {:error:}
+            feature2 = self.buildFeature(bounceTo)
             model.update(self.invokeFeature(feature2, req,res))
-            self.render(model, res, e.where)
+            self.render(model, res, bounceTo)
         else:
             self.render(model, res, action)
 
