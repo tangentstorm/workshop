@@ -5,6 +5,7 @@ storage: a module for storing tabular data
 import unittest
 import operator
 import warnings
+from sets import Set
 from pytypes import Date
 
 # * optinal dependencies
@@ -430,7 +431,8 @@ class MySQLStorageTest(unittest.TestCase):
                     name varchar(32)
                 )
                 """)
-
+            
+    # @TODO: test for Sets
 
     def test_store_quotes(self):
         if self.skip : return
@@ -456,12 +458,13 @@ class MySQLStorage(Storage):
     def _dictify(self, cur):
         """
         converts cursor.fetchall() results into a list of dicts
+        also removes Set() for enums.
         """
         res = []
         for row in cur.fetchall():
             d = {}
             for i in range(len(cur.description)):
-                d[cur.description[i][0]] = row[i]
+                d[cur.description[i][0]] = row[i].pop() if isinstance(row[i], Set) else row[i]
             res.append(d)
         return res
 
