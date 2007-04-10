@@ -4,12 +4,14 @@ import types
 
 class Control: pass # as in yield control
 class Finished: pass
+class NULL: pass # distinct value so we can return None
 
 class GeneratorStack(object):
 
     def __init__(self, task):
         self.stack = []
         self.task = task
+        self.returned = NULL
         self._done = False
 
     def push(self, task):
@@ -24,7 +26,11 @@ class GeneratorStack(object):
 
     def tick(self):
         try:
-            next = self.task.next()
+            if self.returned is not NULL:
+                next = self.task.send(self.returned)
+                self.returned = NULL
+            else:
+                next = self.task.next()
         except StopIteration:
             self.pop()
             if self._done:
@@ -37,6 +43,12 @@ class GeneratorStack(object):
             elif isinstance(next, types.GeneratorType):
                 self.push(next)
                 return self.tick()
+            elif isinstance(next, Return):
+                self.pop()
+                if self._done:
+                    return next
+                else:
+                    self.returned = next.value
             else:
                 return next
 
@@ -72,10 +84,10 @@ class Worker(object):
     def doNextTask(self):
         assert self.queue, "nothing in queue"
         task = self.queue.pop(0)
-        res = task.tick()
+        self.result = task.tick()
         if not task.isDone():
             self.queue.append(task)
-        return res
+        return self.result
 
 class Command(object):
     """
@@ -93,6 +105,10 @@ class Command(object):
         self.stdout = proc.stdout
         self.stderr = proc.stderr      
         
+
+class Return(object):
+    def __init__(self, value):
+        self.value = value
 
 class Result(object):
     def __init__(self):
@@ -131,6 +147,8 @@ def wrap(gen):
     w = Worker()
     w.assign(gen)
     w.work()
+    if isinstance(w.result, Return):
+        return w.result.value
 
 def flatten(gen):
     w = Worker()
