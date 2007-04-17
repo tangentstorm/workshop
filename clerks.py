@@ -1,215 +1,369 @@
-#!/usr/bin/env python2.4
 # arlo: consolidated version.
 """
-clerk: an object-relational mapper in literate style
+clerk: an object-relational mapper
 """
-import narrative as narr
 import operator
 from strongbox import *
 from storage import where
-from unittest import TestCase
 from storage import MockStorage
 
-# * introduction
-"""
-At a high level, what we're doing here is moving data back and forth
-between python objects and some kind of external storage. Generally
-a database.
-
-This is somewhat unusual compared to other systems - like SQLObject.
-Why not just let the objects talk to the database directly? Well,
-the main idea is that sometimes, especially for testing, you want
-to create objects that don't live in the database. I used to use
-records that were tightly bound to the database, but I found it
-was easier to just use one "Clerk" object.
-
-"""
+class _EMPTY_LINK:
+    """
+    A Null Object that holds the ID when Link=None
+    """
+    ID = 0
 
 
+def _linksAndValues(obj):
+    """
+    returns a list of (linkObject, refObject) pairs for the object.
+    If value is None, returns _EMPTY_LINK, so that you can always
+    use refObject.ID
+    """
+    return [(lnkObj, getattr(obj, name) or _EMPTY_LINK)
+            for name, lnkObj in obj.getSlotsOfType(link)]
+
+            # Q: Won't that getattr call fire off a database select?
+            # A: Nope. Remember that these linked objects may be stubs
+            # that only contain the ID. As long as we only look at ref.ID,
+            # this won't load data un-necessarily.
+
+
+class Clerk(object):
+    """
+    Clerk is an object-relational mapper, responsible
+    for storing strongbox-style objects in storage
+    systems defined with the 'storage' module.
+    """
+
+    def __init__(self, storage, schema):
+        self.storage = storage
+        self.schema = schema      
+        # @TODO: WeakValueDictionary() ... doesn't work with strongbox. Why?!
+        self.cache = {}
+
+
+    def _addStubs(self, obj, othercols):
+        for name, lnk in obj.getSlotsOfType(link):
+            fID = othercols.get(self.schema.columnForLink(lnk))
+            if fID:
+                setattr(obj, name,
+                        (self._get_memo(lnk.type, fID)
+                         or self._make_stub(lnk.type, fID)))
+            else:
+                pass # obj.whatever is None, so no stub/memo needed
+
+
+    def _addLinkSetInjectors(self, obj):
+        for name,ls in obj.getSlotsOfType(linkset):
+            column = self.schema.columnForLinkSet(ls)
+            #@TODO: there can just be one LSI instance per linkset attribute
+            #(since it no longer keeps its own reference to the object)
+            obj.addInjector(LinkSetInjector(name, self, ls.type, column).inject)
+
+
+    def _get_memo(self, klass, key):
+        return self.cache.get((klass, key))
+
+
+    def _make_stub(self, klass, ID):
+        stub = klass(ID=ID)
+        stub.private.isDirty = False
+        stub.addInjector(LinkInjector(self, klass, ID).inject)
+        self._put_memo(stub)
+        return stub
+
+
+    def _put_memo(self, obj):
+        if hasattr(obj, "ID"):
+            self.cache[(obj.__class__, obj.ID)]=obj
+        else:
+            raise Warning("couldn't memo %s because it had no ID attribute" % obj)
+
+
+    def _recursive_store(self, obj, seen):
+ 
+        # this ensures that we process each object only once
+        # while we traverse the object graph
+        if obj in seen or obj is _EMPTY_LINK:
+            return obj
+
+        seen[obj] = True
+
+        # Save linked Objects ####################################
+        #
+        # we need to save links first, because we depend on them.
+        # for example:
+        #
+        #    parent.child = Child(val='whatever')
+        #
+        # we now want to store parent.childID but we can't
+        # do that unless we store the child and get the
+        # generated primary key.
+
+
+        for _, ref in _linksAndValues(obj):
+            self._recursive_store(ref, seen)
+
+       
+        # Save the main object ###################################
+
+        self._store_one_instance(obj)
+
+
+        # Save the LinkSETS. ####################################
+        #
+        # These objects depend on having the main object's ID
+        # for the backlink, so they have to get saved last:
+        #
+        # Note that since we don't want to trigger a cascade
+        # of fetches from the database only to turn around and
+        # store the data again , we use object.private.xs rather
+        # than object.xs
+        #
+        # @TODO: better explain the pro's/cons of using obj.private vs obj
+        for name, ls in obj.getSlotsOfType(linkset):
+            for item in getattr(obj.private, name):
+                self._recursive_store(item, seen)
+
+
+        # this next bit is tricky.
+        #
+        # We should never have to add injectors to
+        # something we're saving to the database.
+        # Either it already has injectors, or it's
+        # completely new data.
+        #
+        # So this is okay.:
+
+        obj.private.dont_need_injectors = True
+
+        # But why is it necessary?
+        #
+        # Normally, we add injectors to every object
+        # we load from the database.
+        #
+        # But it's possible that under certain conditons,
+        # multiple linkSetInjectors can be added to the
+        # same object... this happens because...
+        # @TODO: WHY?????
+
+        # test_store_linksets shows an example, but why???
+        
+        #
+        # But say we have a new object: (from test_store_linksets)
+        #
+        #    n1 = Node(data="a")
+        #    
+        #
+        # dont_need_injectors is there so that stubs can
+        # live happily in the cache and can be updated by
+        # _rowToInstance without getting yet another set of
+        # injectors added on. However, fresh objects that
+        # have never been stored should ALSO not have
+        # injectors (because all their data will be fresh
+        # or already processed by the clerk)... Since there's
+        # no other place to detect fresh objects, I put this
+        # here. I have a hunch that changing this to
+        # .need_injectors instead might simplify the logic
+        # considerably but this is working and at the moment
+        # I don't feel like changing it. :)
+        # @TODO: .dont_need_injectors => .need_injectors
+
+        return obj
+
+
+    def _rowToInstance(self, row, klass):
+        attrs, othercols = self._writable_and_other_columns(klass, row)
+        cached = self._get_memo(klass, attrs.get("ID"))
+
+        # the rule: changes in ram trump changes is the DB
+        # otherwise, you can make changes, think you're saving
+        # them, and find out your changes were discarded. That
+        # would be bad. So:
+        #
+        # @TODO: write an explicit test to expose this condition
+        # (it would happen if you have an object in ram and then load
+        # it again - perhaps through some other objects linkset... and
+        # of course if the code here didn't fix the problem. :))
+        if (cached) and (cached.private.isDirty):
+
+            return cached
+        
+        else:
+            
+            # in here we're dealing with either a brand new object...
+            if cached is None:
+                obj = klass()
+
+            # or a cached object that hasn't been touched
+            elif cached and not cached.private.isDirty:
+                # if the object hasn't changed in ram, it's
+                # okay to refresh the data.
+                #
+                # whether it's WISE to do this is another question.
+                # But the tests say it's supposed to happen, and it
+                # seems harmless enough, so I'll keep it for now.
+                obj = cached
+            else:
+                raise AssertionError("this should not be possible.")
+
+            obj.update(**attrs)
+
+            if hasattr(obj.private, "dont_need_injectors"):
+                pass
+            else:
+                obj.private.dont_need_injectors = True
+                self._addStubs(obj, othercols)
+                self._addLinkSetInjectors(obj)
+            
+            obj.private.isDirty = False
+            self._put_memo(obj)
+
+            return obj
+
+
+    def _store_one_instance(self, obj):
+
+        if obj.private.isDirty:
+
+            vals = obj.attributeValues()
+            for lnkObj, ref in _linksAndValues(obj):
+                vals[self.schema.columnForLink(lnkObj)]=ref.ID
+            klass = obj.__class__
+            data_from_db = self.storage.store(self.schema.tableForClass(klass), **vals)
+
+            # update object w/db-generated values (e.g., autonumbers or timestamps)
+            obj.update(**self._writable_columns(klass, data_from_db))
+
+            # since update marks the object dirty, undo that:
+            obj.private.isDirty = False
+
+            # and since this may be the first time we're seeing this object
+            # (i.e., it may be the initial save of new data), stick it in the cache:
+            self._put_memo(obj)
+
+        else:
+            pass # object hasn't changed since we loaded it, so don't bother saving
+
+
+    def _writable_and_other_columns(self, klass, rec):
+        """
+        this separates the rec dictionary into two
+        dictionaries:
+
+        the first contains the key-value pairs for the attribute columns
+
+        the second contains data from other columns that appear in
+        the database but are not writable in the object itself.
+        For example: calculated fields.
+        """
+        attrs, others = {}, {}
+        #@TODO: listWritableSlots probably ought to be a classmethod
+        writables = klass().listWritableSlots()
+        for item in rec.keys():
+            if item in writables:
+                attrs[item]=rec[item]
+            else:
+                others[item]=rec[item]
+        return attrs, others
+
+
+    def _writable_columns(self, klass, rec):
+        return self._writable_and_other_columns(klass, rec)[0]
 
 
 
-# * Clerk
-# ** storing simple objects
-# ** fetch an object by ID
-# ** matching objects
-# ** deleting objects
+    ## public interface ##############################################
+        
+
+    def delete(self, klass, ID): #@TODO: ick!!
+        """
+        Delete the instance of klass with the given ID
+        """
+        #@TODO: this needs to remove it from the cache!
+        self.storage.delete(self.schema.tableForClass(klass), ID)
+        return None
+
+
+    def fetch(self, klass, __ID__=None, **kw):
+        """
+        Like matchOne, but lets you pass in a primary key.
+        """
+        if __ID__:
+            return self.matchOne(klass, ID=__ID__)
+        else:
+            return self.matchOne(klass, **kw)
+
+
+    def match(self, klass, *args, **kwargs):
+        """
+        Returns a row of matched objects.
+        """
+        return [self._rowToInstance(row, klass)
+                for row in self.storage.match(self.schema.tableForClass(klass),
+                                              *args, **kwargs)]
+
+    def matchOne(self, klass, *arg, **kw):
+        """
+        Like match, but ensures the query matches exactly one object.
+        Throws a LookupError if 0 or more than one object matches.
+        """
+        res = self.match(klass, *arg, **kw)
+        if len(res)==0:
+            raise LookupError("matchOne(%s, *%s, **%s) didn't match anything!"
+                              % (klass, arg, kw))
+        elif len(res)>1:
+            raise LookupError("matchOne(%s, *%s, **%s) matched %s objects!"
+                              % (klass, arg, kw, len(res)))
+        return res[0]
+
+
+    def store(self, obj):
+        """
+        Store the object
+        along with any linked objects marked with .isDirty = True.
+        """
+        return self._recursive_store(obj, seen={})
 
 
 
-# * Lazyloading with Injectors
-# ** what are injectors?
-"""
-Imagine that you have a tree of objects 10 levels deep. For
-example, a relationship mapping bosses to subordinates.
-You don't want to have to load the whole tree just to retrieve
-the CEO of a company.
-
-If we'd gone the SQLObject route, then every object knows
-about the database, so it's easy to for the object to just load
-each level of the hierarchy directly. But our objects don't
-know anything about how they're stored. So how to handle that?
-
-What we do is we do is create a shell object. That is, an
-object that holds the place of a record but not the data.
-
-Imagine a tree that looks like this:
-
-        office - manager - projects
-                   |
-        office - workers - projects
 
 
-class Office:
-    manager = link(lambda: Person)
-    workers = linkset(lambda: Person)
+class CallbackClerk(Clerk):
+    """
+    This class allows you to set up callbacks
+    to trigger events whenever an object of a
+    particular class gets stored.
+    """
 
-class Person:
-    office = link(Office)
-    projects = linkset(lambda: Project)
-
-class Project
-
-# todo: this ought to be modelled with roles, so find
-# a better example for this kind of thing.
-
-That is, everyone in each office is assigned to
-certain projects, and every office has some number
-of workers and one manager. This is sort of a contrived
-example, but it allows us to look at two situations:
-the list of manager projects for an office and the
-list of worker projects for an office.
-
-If you imagine a database with this information, you can see
-it's easy to get all the offices: select * from office.
-In our scheme here, it looks like clerk.match(Office)
-
-In the database, the Office table would have managerID
-column, and there would be a separate table for
-workers: ID, officeID, personID
-
-...
-
-I'm trying to show that we have empty objects, and you can't
-tell what state they're in until they're observed.
-
-PEAK seems to do this with bindings...
-SQLObject seems to just hold on to the database connection.
-clerk takes advantage of injectors.
-
-Start with linkset. They're just like select all.
-
-But what if it's a 1-1 relationship? some options:
-
-  a load each one individually (explosion!)
-  b do the join up front in sql
-  c load and cache the whole table
-  d don't load anything
-
-Arlo takes option c or d. option b would be nice but isn't
-implemented.  So I want to show that you can load a hollow manager
-object and it will know it's ID, and can therefore load its projects
-without ever reading the manager data from the database!!
-
-What about the tree explosion? Well, you can just read the
-whole table at once up front...
-
-
-
-302 stopped to fold laundry ----- [0116.2006 03:02PM]
-
-"""
-# ** LinkInjector
-# *** test
-class Foreign(Strongbox):
-    ID = attr(long)
-    data = attr(str)
-
-    # there's no explicit test for this,
-    # but this is here to make sure that inject
-    # handles stored calculated fields properly
-    def get_calc(self):
-        return 2+2
+    def __init__(self, *args, **kwargs):
+        super(CallbackClerk, self).__init__(*args, **kwargs)
+        self._callbacks = {}       
     
-class Local(Strongbox):
-    ref = link(Foreign)
+    def onStore(self, klass, dowhat):
+        self._callbacks.setdefault(klass,[])
+        self._callbacks[klass].append(dowhat)
+        
+    def store(self, thing):
+        thing = super(CallbackClerk, self).store(thing)
+        klass = thing.__class__
+        for callback in self._callbacks.get(klass, []):
+            callback(thing)
+        return thing
+
+
+
+class ClerkError(Exception):
+    """
+    A generic error raised for problems related to clerk.
+    """
+    pass
+
     
 
-
-class LinkInjectorTest(TestCase):
-
-    def test_inject(self):
-        """
-        basic test case.
-        """
-        schema = Schema({
-            Foreign: "foregin",
-            Local: "local",
-            Local.ref: "foreignID",
-        })
-        clerk = MockClerk(schema)
-        
-        obj = Local()
-        assert obj.ref is None
-
-        clerk.store(Foreign(data="Here I come to save the day!"))
-
-        obj.ref = Foreign(ID=1)
-        obj.ref.addInjector(LinkInjector(clerk, Foreign, 1).inject)
-        assert len(obj.ref.private.injectors) == 1
-
-        # should be able to fetch the ID without triggering load
-        assert obj.ref.ID == 1
-        assert obj.ref.private.data == ""
-        assert len(obj.ref.private.injectors) == 1
-
-        # but getting any other field triggers the load!
-        assert obj.ref.data == "Here I come to save the day!"
-        assert len(obj.ref.private.injectors) == 0
-
-
-    def test_with_linkset(self):
-        """
-        what happens if the thing we're injecting
-        has a linkset of its own (this used to fail)
-        """
-
-        class Kid(Strongbox):
-            ID = attr(long)
-            parent = link(lambda : Parent)
-        
-        class Parent(Strongbox):
-            ID = attr(long)
-            name = attr(str)
-            kids = linkset(Kid, "parent")
-        
-        class Uncle(Strongbox):
-            brother = link(Parent)
-
-        schema = Schema({
-            Kid: "kid",
-            Kid.parent: "parentID",
-            Parent: "parent",
-            Uncle: "uncle",
-            Uncle.brother: "brotherID",
-        })
-        clerk = MockClerk(schema)
-
-
-        kid = Kid()
-        dad = Parent(name="Brother Dad")
-        dad.kids << kid
-        clerk.store(dad)
-        
-        unc = Uncle()
-        unc.brother = Parent(ID=1)
-        unc.brother.addInjector(LinkInjector(clerk, Parent, 1).inject)
-
-        ## this next line threw an AttributeError because the
-        ## injector tried to include "kids" in the .update() call
-        assert unc.brother.name=="Brother Dad"
-# *** code
 class LinkInjector:
+
     def __init__(self, clerk, fclass, fID):
         """
         Registers a callback so that when getattr(box, atr)
@@ -254,59 +408,12 @@ class LinkInjector:
             # let them know:
             stub.notifyObservers("inject", "inject")
             stub.removeInjector(self.inject)
-# ** LinkSetInjector
-# *** test
-class Content(Strongbox):
-    ID = attr(long)
-    box = link(lambda : Package)
-    data = attr(str)
-
-class Package(Strongbox):
-    ID = attr(long)
-    refs = linkset(Content, "box")
-
-class LinkSetInjectorTest(TestCase):
-
-    def test_inject(self):
-
-        ms = MockStorage()
-        ms.store("Package")
-        ms.store("Content", data="I'm content", boxID=1)
-        ms.store("Content", data="I'm mal content", boxID=1)
-
-        schema = Schema({
-            Content: "content",
-            Content.box: "boxID",
-            Package: "package",
-        })
-
-        clerk = Clerk(ms, schema)
-
-        pak = Package()
-        pak.refs << Content(data="I'm content", box=pak)
-        pak.refs << Content(data="I'm malcontent", box=pak)
-        pak = clerk.store(pak)
-
-        # @TODO: should be able to add to the index without
-        # triggering load (for performance reasons)
-        # -- so long as any other use DOES trigger load --
 
 
-        clerk.cache.clear()
-        pak = clerk.fetch(Package, ID=1)
-        
-        # asking for .refs will trigger the load:
-        assert len(pak.private.refs) == 0, pak.private.refs
-        assert len(pak.refs) == 2
 
-        # make sure it works with << on a fresh load too:
-        newClerk = Clerk(clerk.storage, clerk.schema)
-        pak = newClerk.fetch(Package, ID=1)
-        assert len(pak.private.refs) == 0
-        pak.refs << Content(data="I'm malcontent",  box=pak)
-        assert len(pak.refs) == 3
-# *** code
+
 class LinkSetInjector:
+    
     def __init__(self, atr, clerk, fclass, fkey):
         """
         atr: the attribute name for the linkset
@@ -328,39 +435,22 @@ class LinkSetInjector:
             box.removeInjector(self.inject)
             table = self.clerk.schema.tableForClass(self.fclass)
             for row in self.clerk.storage.match(table, **{self.fkey:box.ID}):
-                obj = self.clerk.rowToInstance(row, self.fclass)
+                obj = self.clerk._rowToInstance(row, self.fclass)
                 getattr(box.private, self.atr) << obj
 
 
 
-# * ClerkError
-class ClerkError(Exception): pass
+
+def MockClerk(dbmap=None):
+    return Clerk(MockStorage(), dbmap or AutoSchema())
 
 
-# * Schema
-# ** test
-class Loop(Strongbox):
-    next = link(lambda : Loop)
-    tree = linkset((lambda : Loop), "next")
-Loop.next.type = Loop
-Loop.tree.type = Loop
 
-class SchemaTest(unittest.TestCase):
+RamClerk = MockClerk
 
-    def test_schema(self):
-        s = Schema({
-            Loop: "loop_table",
-            Loop.next: "nextID",
-        })
-        assert s.tableForClass(Loop) == "loop_table"
-        assert s.columnForLink(Loop.next) == "nextID"
 
-        # it should be smart enough to infer these:
-        assert s.tableForLink(Loop.next) == "loop_table"
-        assert s.tableForLinkSet(Loop.tree) == "loop_table"
-        assert s.columnForLinkSet(Loop.tree) == "nextID"
-# ** code
 class Schema(object):
+    
     def __init__(self, dbmap=None):
         """
         optionally takes a dict that maps
@@ -385,6 +475,7 @@ class Schema(object):
         return self.tableForClass(ls.type)
     def columnForLinkSet(self, ls):
         return self.columnForLink(getattr(ls.type, ls.back))
+
 # * AutoSchema (??)
 
 ## class AutoSchema(object): # @TODO: make this class
@@ -420,701 +511,4 @@ class Schema(object):
 ##                   % (klass.__name__, name)
 
 
-# * Clerk
-# ** test
-class Record(Strongbox):
-    ID = attr(long)
-    val = attr(str)
-    next = link(lambda : Record)
-
-class Node(Strongbox):
-    ID = attr(long)
-    data = attr(str)
-    parent = link(lambda : Node)
-    kids = linkset((lambda : Node), "parent")
-Node.kids.type=Node
-Node.parent.type=Node   
-
-class ClerkTest(unittest.TestCase):
-
-    def setUp(self):
-        self.storage = MockStorage()
-        schema = Schema({
-            Node: "Node",
-            Node.parent: "parentID",
-            Record: "Record",
-            Record.next: "nextID",
-        })
-        self.clerk = Clerk(self.storage, schema)
-
-
-    def test_store(self):
-        self.clerk.store(Record())
-        actual = self.storage.match("Record")
-        assert actual == [{"ID":1, "val":"", "nextID":0}], actual
-        r = self.clerk.fetch(Record, 1)
-        assert r.next is None
         
-
-    def test_store_again(self):
-        self.clerk.store(Record())
-        r = self.clerk.fetch(Record, 1)
-        r.val = "abc"
-        self.clerk.store(r)
-
-    def test_store_link(self):
-        r = Record(val="a")
-        r.next = Record(val="b")
-
-        self.clerk.store(r)
-        del r
-        r = self.clerk.match(Record, val="a")[0]
-        assert r.ID == 2, "didn't save links first!"
-        assert r.next is not None, "didn't store the link"
-        assert r.next.val=="b", "didn't store link correctly"
-
-        r.next = None
-        self.clerk.store(r)
-        r = self.clerk.match(Record, val="a")[0]
-        assert r.next is None, "didn't delete link!"
-
-        r = Record(val="noNext")
-        self.clerk.store(r)
-        r = self.clerk.fetch(Record, val="noNext")
-        assert r.next is None
-
-
-    def test_store_memo(self):
-        rb = self.clerk.store(Record(val="b"))
-        ra = self.clerk.store(Record(val="a", next=rb))
-
-        a,b = self.clerk.match(Record, orderBy="val")
-        assert a is ra
-        assert b is rb
-
-
-    def test_store_linksets(self):
-        n1 = Node(data="a")
-        n1.kids << Node(data="aa")
-        n1.kids << Node(data="ab")
-        n1.kids[1].kids << Node(data="aba")
-        self.clerk.store(n1)
-        assert len(n1.kids)== 2, [(k.ID, k.data) for k in n1.kids]        
-        
-        n = self.clerk.fetch(Node, data="a")
-        assert len(n1.kids)== 2, "fetch corrupted kids: %s" % [(k.ID, k.data) for k in n1.kids]
-        
-        assert n.ID == 1, "didn't save parent of linkset first!"
-        assert len(n.kids)== 2, "didn't store the linkset: %s" % [(k.ID, k.data) for k in n.kids]
-        assert n.kids[0].data=="aa", "didn't store link correctly"
-        assert n.kids[1].data=="ab", "didn't store link correctly"
-        assert n.kids[1].kids[0].data=="aba", "didn't store link correctly"
-        assert n.kids[0].parent is n
-        assert n.kids[1].parent is n
-
-        n.kids[1].parent=None
-        n.kids.remove(n.kids[1])
-        self.clerk.store(n)
-        n = self.clerk.match(Node, data="a")[0]
-        assert len(n.kids) == 1
-
-        
-        
-    def test_fetch(self):
-        self.clerk.store(Record(val="howdy"))
-
-        # we can pass in an ID:
-        obj = self.clerk.fetch(Record, 1)
-        assert obj.val == "howdy"
-
-        # or we can use keywords:
-        obj = self.clerk.fetch(Record, val="howdy")
-        assert obj.val == "howdy"
-
-
-    def test_delete(self):
-        self.test_fetch()
-        self.clerk.delete(Record, 1)
-        assert self.storage.match("Record") == []
-
-
-    def test_link_injection(self):
-        self.storage.store("Record", val="a", nextID=2)
-        self.storage.store("Record", val="b", nextID=3)
-        self.storage.store("Record", val="c", nextID=None)
-
-        a = self.clerk.fetch(Record, 1)
-        
-        assert a.val == "a"
-        assert a.next.val == "b"
-        assert a.next.next.val == "c"
-        assert a.next.next.next is None
-
-
-    def test_linkset_injection(self):
-        self.storage.store("Node", data="top", parentID=None)
-        self.storage.store("Node", data="a",   parentID=1)
-        self.storage.store("Node", data="a.a", parentID=2)
-        self.storage.store("Node", data="b",   parentID=1)
-        
-        top = self.clerk.fetch(Node, 1)
-        assert top.kids[0].data == "a"
-        assert top.kids[1].data == "b"
-        assert top.kids[1].kids == []
-        assert top.kids[0].kids[0].data == "a.a"
-
-        
-
-    def test_fetch_from_wide_table(self):
-        """
-        Supose a strongbox has 1 slot, but the table has 2+ columns.
-        We can't just jam those columns into the strongbox,
-        because strongbox is *designed* to blow up if you try
-        to add new attributes.
-
-        But on the other hand, a DBA should be able to add columns
-        to the databaes without breaking the code and causing
-        AttributeErrors all over the place.
-
-        Instead, Clerk should only use the columns that have
-        matching attributes, and simply ignore the others.
-
-        This sorta violates the concept of OnceAndOnlyOnce,
-        because now the tables can be out of sync with the
-        data model, but I think it's better than the alternative,
-        and this is the sort of thing one could check with
-        an automated tool.
-
-        #@TODO: write tool to compare DB and object models :)
-        """
-        try:
-            self.storage.store("Record", val="a", extra_column="EEK!")
-            a = self.clerk.fetch(Record, 1)
-            a.val="aa"
-            self.clerk.store(a)
-        except AttributeError:
-            self.fail("shouldn't die when columns outnumber attributes")
-
-
-    def test_calculated_columns(self):
-        """
-        Along those lines, if the table caches calculated
-        fields we need to filter them out when we fetch
-        """
-        class Calculated(StrongBox):
-            ID = attr(int)
-            a = attr(int)
-            def get_b(self):
-                return 5
-            c = attr(int)
-        calc = self.clerk.rowToInstance({"ID":0, "a":1,"b":2,"c":3}, Calculated)
-        assert calc.a == 1
-        assert calc.b == 5
-        assert calc.c == 3
-
-        # the point is, b has to be ignored because
-        # normally it raises an error:
-        self.assertRaises(AttributeError, setattr, calc, "b", 2)
-        
-
-    def test_dirt(self):
-        # dirty by default (already tested in strongbox)
-        r = Record()
-        assert r.private.isDirty
-
-        # but not after a store:
-        r = self.clerk.store(r)
-        assert not r.private.isDirty
-
-        # and not after a fetch:
-        r = self.clerk.fetch(Record, ID=1)
-        assert not r.private.isDirty
-
-        # or a match:
-        r = self.clerk.match(Record)[0]
-        assert not r.private.isDirty
-
-
-    def test_recursion(self):
-        r = Record()
-        r.next = Record()
-        r.next.next = r
-        assert r.private.isDirty
-        assert r.next.private.isDirty
-        r = self.clerk.store(r)
-        assert r.ID == 2
-        assert r.next.ID == 1
-
-        r = self.clerk.fetch(Record, 2)
-        assert not r.private.isDirty
-        assert not r.next.private.isDirty
-
-
-        ## and the same thing for linksets:
-        n = Node()
-        n.kids << Node()
-        n.kids[0].kids << n
-        assert n.private.isDirty
-        assert n.kids[0].private.isDirty
-        n = self.clerk.store(n)
-        
-        
-    def test_identity(self):
-        self.clerk.store(Record(val="one"))
-        rec1a = self.clerk.fetch(Record, 1)
-        rec1b = self.clerk.fetch(Record, 1)
-        assert rec1a is rec1b
-
-        n = Record()
-        r = Record(next=n)        
-        assert self.clerk.store(r) is r
-        assert self.clerk.cache[(Record, r.ID)] is r
-        assert self.clerk.cache[(Record, n.ID)] is n
-        assert self.clerk.cache[(Record, n.ID)] is r.next
-
-    def test_stub(self):
-        self.clerk.store(Record(val="a", next=Record(val="b")))
-        self.clerk.cache.clear()
-        recA = self.clerk.fetch(Record, val="a")
-        recB = self.clerk.fetch(Record, val="b")
-        assert recA.next.ID == recB.ID
-        assert recA.next is recB
-
-    def test_match(self):
-        self.clerk.store(Record(val="one"))
-        self.clerk.store(Record(val="two"))
-        self.clerk.store(Record(val="two"))
-        assert len(self.clerk.match(Record, val="zero")) == 0
-        assert len(self.clerk.match(Record, val="one")) == 1
-        assert len(self.clerk.match(Record, val="two")) == 2
-        
-    def test_matchOne(self):
-        self.clerk.store(Record(val="one"))
-        self.clerk.store(Record(val="two"))
-        self.clerk.store(Record(val="two"))
-        
-        try:
-            self.clerk.matchOne(Record, val="zero")
-            self.fail("should have failed for not matching")
-        except LookupError: pass
-
-        assert isinstance(self.clerk.matchOne(Record, val="one"),
-                          Record)
-
-        try:
-            self.clerk.matchOne(Record, val="two")
-            self.fail("should have failed for matching two")
-        except LookupError: pass
-        
-
-# ** code
-class Clerk(object):
-    __ver__="$Id: Clerk.py,v 1.28 2004/11/11 05:51:52 sabren Exp $"
-    """
-    Clerk is an object-relational mapper, responsible
-    for storing strongbox-style objects in storage
-    systems defined with the 'storage' module.
-
-    Constructor is: Clerk(storage) or Clerk(storage, dbmap)
-    where dbmap is a dictionary mapping classes to table names.
-    """
-
-    def __init__(self, storage, schema):
-        self.storage = storage
-        self.schema = schema
-        
-        # so we always return same instance for same row:
-        # @TODO: WeakValueDictionary() doesn't work with strongbox. Why?!
-        self.cache = {}
-
-    ## public interface ##############################################
-        
-    def store(self, obj):
-        """
-        This traverses the object graph recursively,
-        storing changed objects. 
-        """
-        self._seen = {}
-        return self._recursive_store(obj)
-
-
-
-    def _recursive_store(self, obj):
-
-        # this ensures that we process each object only once
-        # while we traverse the object graph
-        if obj in self._seen:
-            return obj
-        self._seen[obj] = True
-
-        # this just gets data about the object. @TODO: might be out of date
-        vals = obj.attributeValues()
-        klass = obj.__class__
-
-        #if hasattr(self, "DEBUG"):
-        #    print "storing %s(ID=%s)" % (klass.__name__, obj.ID)
-
-        # we need to save links first, because we depend on them:
-        for name, lnk in obj.getSlotsOfType(link):
-            column = self.schema.columnForLink(lnk)
-            ref = getattr(obj, name)
-            if (ref):
-                # here is where we traverse the links:
-                vals[column] = self._recursive_store(ref).ID
-            else:
-                vals[column] = 0
-
-        # now we update obj because of db-generated values
-        # (such as autonumbers or timestamps)
-        if hasattr(obj, "ID"): old_id = obj.ID
-        if obj.private.isDirty:
-            # then store the data:
-            data_from_db = self.storage.store(self.schema.tableForClass(klass), **vals)
-            relevant_columns = self._writable_columns(klass, data_from_db)
-            obj.update(**relevant_columns)
-        id_has_changed = hasattr(obj,"ID") and (obj.ID != old_id)
-
-        # this next bit is tricky.
-        #
-        # dont_need_injectors is there so that stubs can
-        # live happily in the cache and can be updated by
-        # rowToInstance without getting yet another set of
-        # injectors added on. However, fresh objects that
-        # have never been stored should ALSO not have
-        # injectors (because all their data will be fresh
-        # or already processed by the clerk)... Since there's
-        # no other place to detect fresh objects, I put this
-        # here. I have a hunch that changing this to
-        # .need_injectors instead might simplify the logic
-        # considerably but this is working and at the moment
-        # I don't feel like changing it. :)
-        # @TODO: .dont_need_injectors => .need_injectors
-        if id_has_changed:
-            obj.private.dont_need_injectors = True
-            
-        # we've got the clean data, but we called update
-        # with the new primary key,  so we need to reset
-        # isDirty. We have to do it before linkset stuff
-        # to prevent infinite recursion on cyclic data
-        # structures.
-        obj.private.isDirty = False
-
-        # linkSETS, on the other hand, depend on us, so they go last:
-        for name, ls in obj.getSlotsOfType(linkset):
-            column = self.schema.columnForLinkSet(ls)
-            for item in getattr(obj.private, name):
-                if id_has_changed:
-                    item.private.isDirty = True
-                    assert getattr(item, ls.back) is obj, \
-                       "getattr(%s, %s) was not (this) %s" \
-                       % (item.__class__.__name__, ls.back, obj.__class__.__name__)
-                self._recursive_store(item)
-
-        self._put_memo(obj)
-        return obj
-
-
-
-    def rowToInstance(self, row, klass):
-        attrs, othercols = self._writable_and_other_columns(klass, row)
-        obj = self._get_memo(klass, attrs.get("ID"))
-        if obj:
-            # refresh data, but don't break the cache:
-            obj.update(**attrs)
-        else:
-            obj = klass(**attrs)
-        if not hasattr(obj.private, "dont_need_injectors"):
-            self.addInjectors(obj, othercols)
-        self._put_memo(obj)
-        obj.private.isDirty = 0
-        return obj
-
-
-    def match(self, klass, *args, **kwargs):
-        return [self.rowToInstance(row, klass)
-                for row in self.storage.match(self.schema.tableForClass(klass),
-                                              *args, **kwargs)]
-
-    def matchOne(self, klass, *arg, **kw):
-        res = self.match(klass, *arg, **kw)
-        if len(res)==0:
-            raise LookupError("matchOne(%s, *%s, **%s) didn't match anything!"
-                              % (klass, arg, kw))
-        elif len(res)>1:
-            raise LookupError("matchOne(%s, *%s, **%s) matched %s objects!"
-                              % (klass, arg, kw, len(res)))
-        return res[0]
- 
-    def fetch(self, klass, __ID__=None, **kw):
-        if __ID__:
-            return self.matchOne(klass, ID=__ID__)
-        else:
-            return self.matchOne(klass, **kw)
-
-    def delete(self, klass, ID): #@TODO: ick!!
-        self.storage.delete(self.schema.tableForClass(klass), ID)
-        return None
-
-
-    ### private stuff ###############################################
-
-    def _get_memo(self, klass, key):
-        uid = (klass, key)
-        return self.cache.get(uid)
-
-    def _put_memo(self, obj):
-        if hasattr(obj, "ID"):
-            self.cache[(obj.__class__, obj.ID)]=obj
-        else:
-            raise Warning("couldn't memo %s because it had no ID attribute" % obj)
-
-    def addInjectors(self, obj, othercols):
-        obj.private.dont_need_injectors = True
-        klass = obj.__class__
-        ## linkinjectors:
-        for name,lnk in obj.getSlotsOfType(link):
-            fclass = lnk.type
-            column = self.schema.columnForLink(lnk)
-            fID = othercols.get(column)
-            if fID:
-                memo = self._get_memo(fclass, fID)
-                if memo:
-                    setattr(obj, name, memo)
-                else:
-                    stub = fclass(ID = fID)
-                    stub.private.isDirty = 0
-                    stub.addInjector(LinkInjector(self, fclass, fID).inject)
-                    setattr(obj, name, stub)
-                    self._put_memo(stub)
-
-        ## linksetinjectors:
-        for name,ls in obj.getSlotsOfType(linkset):
-            fclass = ls.type
-            column = self.schema.columnForLinkSet(ls)
-            #@TODO: there can just be one LSI instance per linkset attribute
-            #(since it no longer keeps its own reference to the object)
-            obj.addInjector(LinkSetInjector(name, self, fclass, column).inject)
-
-    def _writable_columns(self, klass, rec):
-        return self._writable_and_other_columns(klass, rec)[0]
-
-    def _writable_and_other_columns(self, klass, rec):
-        """
-        this separates the columns in rec
-        """
-        attrs, others = {}, {}
-        #@TODO: listWritableSlots probably ought to be a classmethod
-        writables = klass().listWritableSlots()
-        for item in rec.keys():
-            if item in writables:
-                attrs[item]=rec[item]
-            else:
-                others[item]=rec[item]
-        return attrs, others
-
-# * CallbackClerk
-# ** test
-class Thing(Strongbox):
-    ID = attr(long)
-    x = attr(str)
-
-class OtherThing(Strongbox):
-    ID = attr(long)
-    x = attr(str)
-
-class CallbackClerkTest(unittest.TestCase):
-
-    def test_onStore(self):
-        queue = []
-        schema = Schema({
-            Thing: "thing",
-            OtherThing: "other",
-        })
-            
-        clerk = CallbackClerk(MockStorage(), schema)
-        clerk.onStore(Thing, queue.append)
-        
-        clerk.store(Thing(x="a"))
-        clerk.store(Thing(x="b"))
-        clerk.store(OtherThing(x="not me"))
-
-
-        queue2 = []
-        clerk.onStore(Thing, queue2.append)
-        clerk.store(Thing(x="c"))
-
-        # "c" should wind up in both:
-        assert len(queue) == 3
-        assert "".join([t.x for t in queue]) == "abc"
-
-        assert len(queue2) == 1
-        assert queue2[0].x=="c"
-# ** code
-class CallbackClerk(Clerk):
-    """
-    This class allows you to set up callbacks
-    to trigger events whenever an object of a
-    particular class gets stored.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(CallbackClerk, self).__init__(*args, **kwargs)
-        self._callbacks = {}       
-    
-    def onStore(self, klass, dowhat):
-        self._callbacks.setdefault(klass,[])
-        self._callbacks[klass].append(dowhat)
-        
-    def store(self, thing):
-        thing = super(CallbackClerk, self).store(thing)
-        klass = thing.__class__
-        for callback in self._callbacks.get(klass, []):
-            callback(thing)
-        return thing
-
-
-# * MockClerk
-def MockClerk(dbmap=None):
-    return Clerk(MockStorage(), dbmap or AutoSchema())
-
-# * regression test
-class RegressionTest(unittest.TestCase):
-
-    def test_disappearing_events(self):
-        """
-        This bug came from duckbill. A subscription
-        would post events to its account, and then
-        when it showed the statements the new events
-        would be the only ones to show up - even though
-        there were still others in the database.
-
-        In other words, the injector wasn't working.
-
-        Turns out the problem was that the sub.account
-        stub didn't have injectors on ITS dependent
-        objects. That's why I now replace .private
-        in LinkInjector.inject()
-        """
-        class Evt(Strongbox):
-            ID = attr(long)
-            evt = attr(str)
-            acc = link(lambda : Acc)
-        class Sub(Strongbox):
-            ID = attr(long)
-            acc = link(lambda : Acc)
-        class Acc(Strongbox):
-            ID = attr(long)
-            subs = linkset(Sub, "acc")
-            evts = linkset(Evt, "acc")
-        schema = Schema({
-            Evt:"evt",
-            Sub:"sub",
-            Acc:"acc",
-            Evt.acc: "accID",
-            Sub.acc: "accID",
-        })
-        st = MockStorage()
-        c1 = Clerk(st, schema)
-
-        # store an account with two events and one sub:
-        a = Acc()
-        a.evts << Evt(evt="1")
-        a.evts << Evt(evt="2")
-        assert a.private.isDirty
-        a.subs << Sub()
-        c1.DEBUG = 1
-        c1.store(a)
-
-        # new clerk, new cache:
-        c2 = Clerk(st, schema)
-
-        # add more events while s.acc is a stub
-        s = c2.fetch(Sub, ID=1)
-        assert not s.private.isDirty
-        #@TODO: maybe len() should trigger the lazyload...
-        assert len(s.acc.evts) == 0, [e.evt for e in s.acc.evts]
-        s.acc.evts << Evt(evt="3")
-        #assert len(s.acc.evts) == 1, [e.evt for e in s.acc.evts]
-        assert len(s.acc.evts) == 3, [e.evt for e in s.acc.evts]
-        c2.DEBUG = 0
-        c2.store(s)
-        a2 = c2.fetch(Acc, ID=a.ID)
-
-        assert a is not a2
-
-        # we should now have all three events,
-        # but we were getting only the third one:
-        assert len(a2.evts) == 3, [e.evt for e in a2.evts]
-    
-
-    def test_complex_recursion(self):
-        """
-        test case from cornerhost that exposed a bug.
-        this is probably redundant given test_recursion
-        but it doesn't hurt to keep it around. :)
-
-        This test is complicated. Basically it sets up
-        several classes that refer to each other in a loop
-        and makes sure it's possible to save them without
-        infinite recursion.
-        
-        @TODO: isInstance(LinkSetInjector) in Clerk.py need tests
-        It ought to do some kind of polymorphism magic anyway.
-        (huh??)
-        """
-
-        class User(Strongbox):
-            ID = attr(long)
-            username = attr(str)
-            domains = linkset((lambda : Domain),"user")
-            sites = linkset((lambda : Site),"user")
-        class Domain(Strongbox):
-            ID = attr(long)
-            user = link(User)
-            name = attr(str)
-            site = link(lambda : Site)            
-        class Site(Strongbox):
-            ID = attr(long)
-            user = link(User)
-            domain = link(Domain)
-        dbMap = Schema({
-            User:"user",
-            Domain:"domain",
-            Domain.user: "userID",
-            Domain.site: "siteID",
-            Site:"site",
-            Site.user: "userID",
-            Site.domain: "domainID",
-        })
-       
-        clerk = Clerk(MockStorage(), dbMap)
-        u = clerk.store(User(username="ftempy"))
-        u = clerk.match(User,username="ftempy")[0]
-        d = clerk.store(Domain(name="ftempy.com", user=u))
-        assert d.user, "didn't follow link before fetch"
-        d = clerk.match(Domain, name="ftempy.com")[0]
-
-        # the bug was here: it only happened if User had .domains
-        # I think because it was a linkset, and the linkset had
-        # an injector. Fixed by inlining the injector test into
-        # Clekr.store:
-        assert d.user, "didn't follow link after fetch"
-        assert d.user.ID == u.ID
-
-        # ah, but then we had an infinite recursion problem
-        # with site, but I fixed that with private.isDirty:
-        d.site = clerk.store(Site(domain=d))
-        d = clerk.store(d)
-        assert d.site.domain.name == "ftempy.com"
-
-        # and again here:
-        d = clerk.fetch(Domain, 1)
-        assert not d.private.isDirty
-        assert not d.site.private.isDirty # this failed.
-        clerk.store(d)                    # so this would recurse forever
-
-
-# * --
-if __name__=="__main__":
-    unittest.main()
-
