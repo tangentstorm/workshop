@@ -34,6 +34,7 @@ class Cache(object):
     """
     def __init__(self):
         self.data = {}
+        self.index = {}
         self.allCached = {}
 
     def __getitem__(self, (klass, ID)):
@@ -300,11 +301,26 @@ class Clerk(object):
     ## public interface ##############################################
         
 
-    def cacheAll(self, klass):
+    def cacheAll(self, klass, index=[]):
         """
-        Really just an alias for match with no arguments
+        Acts like .match(klass) but also allows indexing by a table.
         """
-        self.match(klass)
+        if index:
+            sci = self.cache.index
+            matches = self.match(klass)
+            for column in index:
+                sci.setdefault(klass, {}).setdefault(column, {})
+                
+            for item in matches:
+                for column in index:
+                    thing = getattr(item,column)
+                    if hasattr(thing, "ID"): thing = thing.ID
+                    sci[klass][column].setdefault(thing,[])
+                    sci[klass][column][thing].append(item)
+
+            return matches
+        else:
+            return self.match(klass)
        
 
     def delete(self, klass, ID): #@TODO: ick!!
@@ -471,7 +487,7 @@ class LinkSetInjector:
         fkey: column name of the foreign key that points back to the parent
         """
         self.clerk = clerk
-        self.atr = atr
+        self.name = atr
         self.fkey = fkey
         self.linksetAttr = linksetAttr
 
@@ -480,19 +496,32 @@ class LinkSetInjector:
         box: the Strongbox instance we're being called from
         name: the attribute name that was getattr'd
         """
-        if name == self.atr:
+        if name == self.name:
             box.removeInjector(self.inject)
 
             theLinkSet = getattr(box, self.linksetAttr.name)
             childType = self.linksetAttr.type
+            backName = self.linksetAttr.back
 
             # cached table optimization:
             if childType in self.clerk.cache.allCached:
-                for obj in self.clerk.cache.data[childType].values():
-                    backLink = getattr(obj, self.linksetAttr.back)
-                    if backLink is box:
-                        theLinkSet << obj
+
+                # see if there's an index for this column
+                sci = self.clerk.cache.index
+                if (childType in sci) and backName in sci[childType]:
+                    kids = sci[childType].get(box.ID)
+                    if kids:
+                        [theLinkSet << obj for obj in kids]
+
+                else:
+                    
+                    # no index on this column
+                    for obj in self.clerk.cache.data[childType].values():
+                        backLink = getattr(obj, backName)
+                        if backLink is box:
+                            theLinkSet << obj
             else:
+                # no cache at all; hit the database.
                 table = self.clerk.schema.tableForClass(childType)
                 for row in self.clerk.storage.match(table, **{self.fkey:box.ID}):
                     obj = self.clerk._rowToInstance(row, childType)
