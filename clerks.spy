@@ -110,11 +110,208 @@ def test_basics(test):
     assert c is r
 
 
-# * matching objects
+# * test conventions used for Clerk
+
+class Node(Strongbox):
+    ID = attr(long)
+    data = attr(str)
+    parent = link(lambda : Node)
+    kids = linkset((lambda : Node), "parent")
+
+
+
+class ClerkTest(unittest.TestCase):
+    def setUp(self):
+        self.storage = MockStorage()
+        schema = Schema({
+            Node: "Node",
+            Node.parent: "parentID",
+            Record: "Record",
+            Record.next: "nextID",
+        })
+        self.clerk = Clerk(self.storage, schema)
+
+
+# * storing objects
+
+@addMethod(ClerkTest)
+def test_store(self):
+    self.clerk.store(Record())
+    actual = self.storage.match("Record")
+    assert actual == [{"ID":1, "val":"", "nextID":0}], actual
+    r = self.clerk.fetch(Record, 1)
+    assert r.next is None
+
+
+@addMethod(ClerkTest)
+def test_store_again(self):
+    self.clerk.store(Record())
+    r = self.clerk.fetch(Record, 1)
+    r.val = "abc"
+    self.clerk.store(r)
+
+@addMethod(ClerkTest)
+def test_store_link(self):
+    r = Record(val="a")
+    r.next = Record(val="b")
+
+    self.clerk.store(r)
+    del r
+    r = self.clerk.match(Record, val="a")[0]
+    assert r.ID == 2, "didn't save links first!"
+    assert r.next is not None, "didn't store the link"
+    assert r.next.val=="b", "didn't store link correctly"
+
+    r.next = None
+    self.clerk.store(r)
+    r = self.clerk.match(Record, val="a")[0]
+    assert r.next is None, "didn't delete link!"
+
+    r = Record(val="noNext")
+    self.clerk.store(r)
+    r = self.clerk.fetch(Record, val="noNext")
+    assert r.next is None
+
+@addMethod(ClerkTest)
+def test_store_linksets(self):
+    n1 = Node(data="a")
+    n1.kids << Node(data="aa")
+    n1.kids << Node(data="ab")
+    n1.kids[1].kids << Node(data="aba")
+    self.clerk.store(n1)
+    assert len(n1.kids)== 2, [(k.ID, k.data) for k in n1.kids]        
+
+    n = self.clerk.fetch(Node, 1)
+    assert n is n1
+    assert len(n1.kids)== 2, \
+           "fetch corrupted kids: %s" % [(k.ID, k.data) for k in n1.kids]
+
+    assert n.ID == 1, "didn't save parent of linkset first!"
+    assert len(n.kids)== 2, \
+           "didn't store the linkset: %s" % [(k.ID, k.data) for k in n.kids]
+    assert n.kids[0].data=="aa", "didn't store link correctly"
+    assert n.kids[1].data=="ab", "didn't store link correctly"
+    assert n.kids[1].kids[0].data=="aba", "didn't store link correctly"
+    assert n.kids[0].parent is n
+    assert n.kids[1].parent is n
+
+    n.kids[1].parent=None
+    n.kids.remove(n.kids[1])
+    self.clerk.store(n)
+    n = self.clerk.match(Node, data="a")[0]
+    assert len(n.kids) == 1
+
+
+# * fetching objects
+
+@addMethod(ClerkTest)
+def test_fetch(self):
+    self.clerk.store(Record(val="howdy"))
+
+    # we can pass in an ID:
+    obj = self.clerk.fetch(Record, 1)
+    assert obj.val == "howdy"
+
+    # or we can use keywords:
+    obj = self.clerk.fetch(Record, val="howdy")
+    assert obj.val == "howdy"
+
+
+def test_fetch_from_wide_table(self):
+    """
+    Supose a strongbox has 1 slot, but the table has 2+ columns.
+    We can't just jam those columns into the strongbox,
+    because strongbox is *designed* to blow up if you try
+    to add new attributes.
+
+    But on the other hand, a DBA should be able to add columns
+    to the databaes without breaking the code and causing
+    AttributeErrors all over the place.
+
+    Instead, Clerk should only use the columns that have
+    matching attributes, and simply ignore the others.
+
+    This sorta violates the concept of OnceAndOnlyOnce,
+    because now the tables can be out of sync with the
+    data model, but I think it's better than the alternative,
+    and this is the sort of thing one could check with
+    an automated tool.
+
+    #@TODO: write tool to compare DB and object models :)
+    """
+    try:
+        self.storage.store("Record", val="a", extra_column="EEK!")
+        a = self.clerk.fetch(Record, 1)
+        a.val="aa"
+        self.clerk.store(a)
+    except AttributeError:
+        self.fail("shouldn't die when columns outnumber attributes")
+
+
+@addMethod(ClerkTest)
+def test_fetch_with_calculated_columns(self):
+    """
+    Along those lines, if the table caches calculated
+    fields we need to filter them out when we fetch
+    """
+    class Calculated(StrongBox):
+        ID = attr(int)
+        a = attr(int)
+        def get_b(self):
+            return 5
+        c = attr(int)
+    calc = self.clerk._rowToInstance({"ID":0, "a":1,"b":2,"c":3}, Calculated)
+    assert calc.a == 1
+    assert calc.b == 5
+    assert calc.c == 3
+
+    # the point is, b has to be ignored because
+    # normally it raises an error:
+    self.assertRaises(AttributeError, setattr, calc, "b", 2)
+
+
+
+# * matching multiple objects
+
+@addMethod(ClerkTest)
+def test_match(self):
+    self.clerk.store(Record(val="one"))
+    self.clerk.store(Record(val="two"))
+    self.clerk.store(Record(val="two"))
+    assert len(self.clerk.match(Record, val="zero")) == 0
+    assert len(self.clerk.match(Record, val="one")) == 1
+    assert len(self.clerk.match(Record, val="two")) == 2
+
+
+@addMethod(ClerkTest)
+def test_matchOne(self):
+    self.clerk.store(Record(val="one"))
+    self.clerk.store(Record(val="two"))
+    self.clerk.store(Record(val="two"))
+
+    try:
+        self.clerk.matchOne(Record, val="zero")
+        self.fail("should have failed for not matching")
+    except LookupError: pass
+
+    assert isinstance(self.clerk.matchOne(Record, val="one"),
+                      Record)
+
+    try:
+        self.clerk.matchOne(Record, val="two")
+        self.fail("should have failed for matching two")
+    except LookupError: pass
 
 
 
 # * deleting objects
+
+
+@addMethod(ClerkTest)
+def test_delete(self):
+    self.test_fetch()
+    self.clerk.delete(Record, 1)
+    assert self.storage.match("Record") == []
 
 
 
@@ -346,143 +543,6 @@ def test_linkset_inject(self):
     assert len(pak.refs) == 3
 
 
-
-
-@testcase
-def test_schema(self):
-
-    class Loop(Strongbox):
-        next = link(lambda : Loop)
-        tree = linkset((lambda : Loop), "next")
-
-    s = Schema({
-        Loop: "loop_table",
-        Loop.next: "nextID",
-    })
-    assert s.tableForClass(Loop) == "loop_table"
-    assert s.columnForLink(Loop.next) == "nextID"
-
-    # it should be smart enough to infer the
-    # links, but note that first have to clear out
-    # the lambdas by actually instantiating a Loop
-    # @TODO: should schema clear the lambda for us?
-    x = Loop()
-    assert s.tableForLink(Loop.next) == "loop_table"
-    assert s.tableForLinkSet(Loop.tree) == "loop_table"
-    assert s.columnForLinkSet(Loop.tree) == "nextID"
-
-
-class Node(Strongbox):
-    ID = attr(long)
-    data = attr(str)
-    parent = link(lambda : Node)
-    kids = linkset((lambda : Node), "parent")
-
-
-
-class ClerkTest(unittest.TestCase):
-    def setUp(self):
-        self.storage = MockStorage()
-        schema = Schema({
-            Node: "Node",
-            Node.parent: "parentID",
-            Record: "Record",
-            Record.next: "nextID",
-        })
-        self.clerk = Clerk(self.storage, schema)
-
-
-@addMethod(ClerkTest)
-def test_store_again(self):
-    self.clerk.store(Record())
-    r = self.clerk.fetch(Record, 1)
-    r.val = "abc"
-    self.clerk.store(r)
-
-@addMethod(ClerkTest)
-def test_store_link(self):
-    r = Record(val="a")
-    r.next = Record(val="b")
-
-    self.clerk.store(r)
-    del r
-    r = self.clerk.match(Record, val="a")[0]
-    assert r.ID == 2, "didn't save links first!"
-    assert r.next is not None, "didn't store the link"
-    assert r.next.val=="b", "didn't store link correctly"
-
-    r.next = None
-    self.clerk.store(r)
-    r = self.clerk.match(Record, val="a")[0]
-    assert r.next is None, "didn't delete link!"
-
-    r = Record(val="noNext")
-    self.clerk.store(r)
-    r = self.clerk.fetch(Record, val="noNext")
-    assert r.next is None
-
-
-@addMethod(ClerkTest)
-def test_store_memo(self):
-    rb = self.clerk.store(Record(val="b"))
-    ra = self.clerk.store(Record(val="a", next=rb))
-
-    a,b = self.clerk.match(Record, orderBy="val")
-    assert a is ra
-    assert b is rb
-
-
-@addMethod(ClerkTest)
-def test_store_linksets(self):
-    n1 = Node(data="a")
-    n1.kids << Node(data="aa")
-    n1.kids << Node(data="ab")
-    n1.kids[1].kids << Node(data="aba")
-    self.clerk.store(n1)
-    assert len(n1.kids)== 2, [(k.ID, k.data) for k in n1.kids]        
-
-    n = self.clerk.fetch(Node, 1)
-    assert n is n1
-    assert len(n1.kids)== 2, \
-           "fetch corrupted kids: %s" % [(k.ID, k.data) for k in n1.kids]
-
-    assert n.ID == 1, "didn't save parent of linkset first!"
-    assert len(n.kids)== 2, \
-           "didn't store the linkset: %s" % [(k.ID, k.data) for k in n.kids]
-    assert n.kids[0].data=="aa", "didn't store link correctly"
-    assert n.kids[1].data=="ab", "didn't store link correctly"
-    assert n.kids[1].kids[0].data=="aba", "didn't store link correctly"
-    assert n.kids[0].parent is n
-    assert n.kids[1].parent is n
-
-    n.kids[1].parent=None
-    n.kids.remove(n.kids[1])
-    self.clerk.store(n)
-    n = self.clerk.match(Node, data="a")[0]
-    assert len(n.kids) == 1
-
-
-
-@addMethod(ClerkTest)
-def test_fetch(self):
-    self.clerk.store(Record(val="howdy"))
-
-    # we can pass in an ID:
-    obj = self.clerk.fetch(Record, 1)
-    assert obj.val == "howdy"
-
-    # or we can use keywords:
-    obj = self.clerk.fetch(Record, val="howdy")
-    assert obj.val == "howdy"
-
-
-@addMethod(ClerkTest)
-def test_delete(self):
-    self.test_fetch()
-    self.clerk.delete(Record, 1)
-    assert self.storage.match("Record") == []
-
-
 @addMethod(ClerkTest)
 def test_link_injection(self):
     self.storage.store("Record", val="a", nextID=2)
@@ -512,59 +572,9 @@ def test_linkset_injection(self):
 
 
 
-@addMethod(ClerkTest)
-def test_fetch_from_wide_table(self):
-    """
-    Supose a strongbox has 1 slot, but the table has 2+ columns.
-    We can't just jam those columns into the strongbox,
-    because strongbox is *designed* to blow up if you try
-    to add new attributes.
-
-    But on the other hand, a DBA should be able to add columns
-    to the databaes without breaking the code and causing
-    AttributeErrors all over the place.
-
-    Instead, Clerk should only use the columns that have
-    matching attributes, and simply ignore the others.
-
-    This sorta violates the concept of OnceAndOnlyOnce,
-    because now the tables can be out of sync with the
-    data model, but I think it's better than the alternative,
-    and this is the sort of thing one could check with
-    an automated tool.
-
-    #@TODO: write tool to compare DB and object models :)
-    """
-    try:
-        self.storage.store("Record", val="a", extra_column="EEK!")
-        a = self.clerk.fetch(Record, 1)
-        a.val="aa"
-        self.clerk.store(a)
-    except AttributeError:
-        self.fail("shouldn't die when columns outnumber attributes")
 
 
-@addMethod(ClerkTest)
-def test_calculated_columns(self):
-    """
-    Along those lines, if the table caches calculated
-    fields we need to filter them out when we fetch
-    """
-    class Calculated(StrongBox):
-        ID = attr(int)
-        a = attr(int)
-        def get_b(self):
-            return 5
-        c = attr(int)
-    calc = self.clerk._rowToInstance({"ID":0, "a":1,"b":2,"c":3}, Calculated)
-    assert calc.a == 1
-    assert calc.b == 5
-    assert calc.c == 3
-
-    # the point is, b has to be ignored because
-    # normally it raises an error:
-    self.assertRaises(AttributeError, setattr, calc, "b", 2)
-
+# * dirty little objects
 
 @addMethod(ClerkTest)
 def test_dirt(self):
@@ -609,6 +619,19 @@ def test_recursion(self):
     assert n.kids[0].private.isDirty
     n = self.clerk.store(n)
 
+# * stubs
+
+@addMethod(ClerkTest)
+def test_stub(self):
+    self.clerk.store(Record(val="a", next=Record(val="b")))
+    self.clerk.cache.clear()
+    recA = self.clerk.fetch(Record, val="a")
+    recB = self.clerk.fetch(Record, val="b")
+    assert recA.next.ID == recB.ID
+    assert recA.next is recB
+
+
+# * the cache
 
 @addMethod(ClerkTest)
 def test_identity(self):
@@ -625,42 +648,16 @@ def test_identity(self):
     assert self.clerk.cache[(Record, n.ID)] is r.next
 
 @addMethod(ClerkTest)
-def test_stub(self):
-    self.clerk.store(Record(val="a", next=Record(val="b")))
-    self.clerk.cache.clear()
-    recA = self.clerk.fetch(Record, val="a")
-    recB = self.clerk.fetch(Record, val="b")
-    assert recA.next.ID == recB.ID
-    assert recA.next is recB
+def test_store_memo(self):
+    rb = self.clerk.store(Record(val="b"))
+    ra = self.clerk.store(Record(val="a", next=rb))
 
-@addMethod(ClerkTest)
-def test_match(self):
-    self.clerk.store(Record(val="one"))
-    self.clerk.store(Record(val="two"))
-    self.clerk.store(Record(val="two"))
-    assert len(self.clerk.match(Record, val="zero")) == 0
-    assert len(self.clerk.match(Record, val="one")) == 1
-    assert len(self.clerk.match(Record, val="two")) == 2
+    a,b = self.clerk.match(Record, orderBy="val")
+    assert a is ra
+    assert b is rb
 
-@addMethod(ClerkTest)
-def test_matchOne(self):
-    self.clerk.store(Record(val="one"))
-    self.clerk.store(Record(val="two"))
-    self.clerk.store(Record(val="two"))
 
-    try:
-        self.clerk.matchOne(Record, val="zero")
-        self.fail("should have failed for not matching")
-    except LookupError: pass
-
-    assert isinstance(self.clerk.matchOne(Record, val="one"),
-                      Record)
-
-    try:
-        self.clerk.matchOne(Record, val="two")
-        self.fail("should have failed for matching two")
-    except LookupError: pass
-
+# * callbacks
 
 @testcase
 def test_callbacks(self):
@@ -699,6 +696,35 @@ def test_callbacks(self):
     assert queue2[0].x=="c"
 
 
+
+# * schema objects
+
+@testcase
+def test_schema(self):
+
+    class Loop(Strongbox):
+        next = link(lambda : Loop)
+        tree = linkset((lambda : Loop), "next")
+
+    s = Schema({
+        Loop: "loop_table",
+        Loop.next: "nextID",
+    })
+    assert s.tableForClass(Loop) == "loop_table"
+    assert s.columnForLink(Loop.next) == "nextID"
+
+    # it should be smart enough to infer the
+    # links, but note that first have to clear out
+    # the lambdas by actually instantiating a Loop
+    # @TODO: should schema clear the lambda for us?
+    x = Loop()
+    assert s.tableForLink(Loop.next) == "loop_table"
+    assert s.tableForLinkSet(Loop.tree) == "loop_table"
+    assert s.columnForLinkSet(Loop.tree) == "nextID"
+
+
+
+# * regression tests
 
 @testcase
 def disappearing_events_regression_test(self):
@@ -838,7 +864,7 @@ def complex_recursion_regression_test(self):
 
 
 
+# * unit test runner
 
 if __name__=="__main__":
     unittest.main()
-
