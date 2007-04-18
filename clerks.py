@@ -43,13 +43,13 @@ class Clerk(object):
         self.cache = {}
 
 
-    def _addStubs(self, obj, othercols):
+    def _addLinksAndStubs(self, obj, othercols):
         for name, lnk in obj.getSlotsOfType(link):
             fID = othercols.get(self.schema.columnForLink(lnk))
             if fID:
                 setattr(obj, name,
                         (self._get_memo(lnk.type, fID)
-                         or self._make_stub(lnk.type, fID)))
+                         or self._makeStub(lnk.type, fID)))
             else:
                 pass # obj.whatever is None, so no stub/memo needed
 
@@ -66,7 +66,7 @@ class Clerk(object):
         return self.cache.get((klass, key))
 
 
-    def _make_stub(self, klass, ID):
+    def _makeStub(self, klass, ID):
         stub = klass(ID=ID)
         stub.private.isDirty = False
         stub.addInjector(LinkInjector(self, klass, ID).inject)
@@ -148,8 +148,8 @@ class Clerk(object):
         # same object... this happens because...
         # @TODO: WHY?????
 
-        # test_store_linksets shows an example, but why???
-        
+        # test_store_linksets shows an example, but why?
+        #
         #
         # But say we have a new object: (from test_store_linksets)
         #
@@ -194,7 +194,7 @@ class Clerk(object):
             
             # in here we're dealing with either a brand new object...
             if cached is None:
-                obj = klass()
+                obj = klass(**attrs)
 
             # or a cached object that hasn't been touched
             elif cached and not cached.private.isDirty:
@@ -205,16 +205,15 @@ class Clerk(object):
                 # But the tests say it's supposed to happen, and it
                 # seems harmless enough, so I'll keep it for now.
                 obj = cached
+                obj.update(**attrs)
             else:
                 raise AssertionError("this should not be possible.")
-
-            obj.update(**attrs)
 
             if hasattr(obj.private, "dont_need_injectors"):
                 pass
             else:
                 obj.private.dont_need_injectors = True
-                self._addStubs(obj, othercols)
+                self._addLinksAndStubs(obj, othercols)
                 self._addLinkSetInjectors(obj)
             
             obj.private.isDirty = False
@@ -291,6 +290,7 @@ class Clerk(object):
         Like matchOne, but lets you pass in a primary key.
         """
         if __ID__:
+            assert not kw, "ID and where are mutually exclusive for fetch"
             return self.matchOne(klass, ID=__ID__)
         else:
             return self.matchOne(klass, **kw)
@@ -400,8 +400,9 @@ class LinkInjector:
             new = self.clerk.fetch(self.fclass, self.fID).private
 
             # inject the data:
-            for slot in stub.listWritableSlots():
-                setattr(old, slot, getattr(new, slot))
+            for slot, _ in stub.getSlots(): #WritableSlots():
+                if slot.startswith("_"): continue
+                setattr(old, slot, getattr(new, slot, None))
             old.isDirty = False
 
             # since we might have observers, we'll
