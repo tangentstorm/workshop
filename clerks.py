@@ -94,7 +94,7 @@ class Clerk(object):
             column = self.schema.columnForLinkSet(ls)
             #@TODO: there can just be one LSI instance per linkset attribute
             #(since it no longer keeps its own reference to the object)
-            obj.addInjector(LinkSetInjector(name, self, ls.type, column).inject)
+            obj.addInjector(LinkSetInjector(name, self, ls, column).inject)
 
 
     def _makeStub(self, klass, ID):
@@ -444,6 +444,10 @@ class LinkInjector:
             new = self.clerk.fetch(self.fclass, self.fID).private
 
             # inject the data:
+            # ----
+            # @TODO: shouldn't this add stubs for all the other slots?
+            # otherwise parent.child.grandchild will always be none... won't it?
+            # ----
             for slot, _ in stub.getSlots(): #WritableSlots():
                 if slot.startswith("_"): continue
                 setattr(old, slot, getattr(new, slot, None))
@@ -459,7 +463,7 @@ class LinkInjector:
 
 class LinkSetInjector:
     
-    def __init__(self, atr, clerk, fclass, fkey):
+    def __init__(self, atr, clerk, linksetAttr, fkey):
         """
         atr: the attribute name for the linkset
         clerk: a clerk
@@ -468,8 +472,8 @@ class LinkSetInjector:
         """
         self.clerk = clerk
         self.atr = atr
-        self.fclass = fclass
         self.fkey = fkey
+        self.linksetAttr = linksetAttr
 
     def inject(self, box, name):
         """
@@ -478,10 +482,21 @@ class LinkSetInjector:
         """
         if name == self.atr:
             box.removeInjector(self.inject)
-            table = self.clerk.schema.tableForClass(self.fclass)
-            for row in self.clerk.storage.match(table, **{self.fkey:box.ID}):
-                obj = self.clerk._rowToInstance(row, self.fclass)
-                getattr(box.private, self.atr) << obj
+
+            theLinkSet = getattr(box, self.linksetAttr.name)
+            childType = self.linksetAttr.type
+
+            # cached table optimization:
+            if childType in self.clerk.cache.allCached:
+                for obj in self.clerk.cache.data[childType].values():
+                    backLink = getattr(obj, self.linksetAttr.back)
+                    if backLink is box:
+                        theLinkSet << obj
+            else:
+                table = self.clerk.schema.tableForClass(childType)
+                for row in self.clerk.storage.match(table, **{self.fkey:box.ID}):
+                    obj = self.clerk._rowToInstance(row, childType)
+                    theLinkSet << obj
 
 
 

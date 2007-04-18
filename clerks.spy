@@ -702,6 +702,70 @@ def test_cached_class(self):
     assert a.ID == 1
     assert a.value == 'a'
 
+
+# ** speeding up linksets with cached tables
+"""
+If we know that the entire table is cached, we can speed
+up linksets based on that table considerably.
+
+The code that implements this is actually in LinkSetInjector.
+"""
+@testcase
+def test_cached_linksets(test):
+
+    class Parent(Strongbox):
+        ID = attr(long)
+        value = attr(str)
+        kids = linkset((lambda : Child), "parent")
+
+    class Child(Strongbox):
+        ID = attr(long)
+        value = attr(str)
+        parent = link(Parent)
+
+    child_table = 'ct'
+    parent_table = 'pt'
+    schema = Schema({
+        Parent : parent_table,
+        Child  : child_table,
+        Child.parent : "parentID",
+    })
+
+    storage = RamStorage()
+    clerk = Clerk(storage, schema)
+
+    # set up our data:
+    
+    storage.store(parent_table, value='big_daddy')
+    
+    storage.store(child_table, value='a', parentID=0)
+    storage.store(child_table, value='b', parentID=1)
+    storage.store(child_table, value='c', parentID=1)
+    storage.store(child_table, value='d', parentID=0)
+
+    # cache it:
+    clerk.cacheAll(Child)
+
+    # delete the underlying data, so there's no confusion
+    for x in range(1,5):
+        storage.delete(child_table, x)
+
+    # grab the parent:
+    big_daddy = clerk.fetch(Parent, 1)
+
+    assert Parent.kids.back =="parent"
+    assert Parent.kids.type == Child
+    assert Child in clerk.cache.allCached
+
+    # now this should pull the data out of the cache:
+    # @TODO: why do you have to do it like this?
+    kids = [x  for x in big_daddy.kids]
+    test.assertEquals(2, len(big_daddy.kids))
+    
+    
+    
+    
+
 # * callbacks
 
 @testcase
