@@ -1,3 +1,7 @@
+#!/usr/bin/env python2.5
+import narrative as narr
+import unittest
+from strongbox import *
 """
 <title>strongbox: powerful data classes for python</title>
 """
@@ -720,6 +724,31 @@ def test_get_event(self):
            "should have been called 1 time (vs %i)" % inj.called
     assert inj.name == "name"
     assert value == "wilma", value
+
+
+"""
+The most usful reason for this is so that you can lazy-load
+links and linksets. For example:
+"""
+@narr.testcase
+def test_inject_linkset(self):
+    class Parent(Strongbox):
+        kids = linkset((lambda : Child), "parent")
+    class Child(Strongbox):
+        name = attr(str)
+        parent = link(lambda : Parent)
+
+    def makeKids(parent_obj, slot):
+        if slot == 'kids':
+            for x in range(10):
+                parent_obj.private.kids << Child(name='kid number %s' % x)
+
+    p = Parent()
+    p.addInjector(makeKids)
+    self.assertEquals(10, len(p.kids))
+
+
+
 
 # *** private.isDirty
 """
