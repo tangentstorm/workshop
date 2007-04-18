@@ -743,8 +743,22 @@ def test_cached_linksets(test):
     storage.store(child_table, value='c', parentID=1)
     storage.store(child_table, value='d', parentID=0)
 
+
+    # Note: we could do this first:
+    # big_daddy = clerk.fetch(Parent, 1)
+    # *BUT* there used to be a case where
+    # doing this first caused the test to pass
+    # and doing it later caused the test to fail.
+    # so... do it later to expose the bug.
+
+
     # cache it:
     clerk.cacheAll(Child)
+
+    assert Parent.kids.back =="parent"
+    assert Parent.kids.type == Child
+    assert Child in clerk.cache.allCached
+    assert Child not in clerk.cache.index
 
     # delete the underlying data, so there's no confusion
     for x in range(1,5):
@@ -753,14 +767,29 @@ def test_cached_linksets(test):
     # grab the parent:
     big_daddy = clerk.fetch(Parent, 1)
 
-    assert Parent.kids.back =="parent"
-    assert Parent.kids.type == Child
-    assert Child in clerk.cache.allCached
+    # note the parent is a stub:
+    assert big_daddy.private.value == ''
+    assert len(big_daddy.private.kids)==0
+   
+
+    # the stub is associated with the cached child objects
+    test.assertEquals(4, len(clerk.cache.data[Child].values()))
+    child2 = clerk.cache.data[Child][2]
+    assert child2.parent is big_daddy
+
+
+    # the stub should have two injectors:
+    # a linkinjector (to fill in its own data)
+    # and a linkset injector (for .kids)
+    test.assertEquals(2, len(big_daddy.private.injectors))
+
 
     # now this should pull the data out of the cache:
-    # @TODO: why do you have to do it like this?
-    kids = [x  for x in big_daddy.kids]
     test.assertEquals(2, len(big_daddy.kids))
+
+
+    # but note that it is *still* a stub!!
+    assert big_daddy.private.value == ''
 
 
 # ** indexing the cache by a column
@@ -775,7 +804,8 @@ We need to do what the database does, and index the cache.
 """
 @addMethod(ClerkTest)
 def test_cache_hash(self):
-    
+
+    self.storage.store(NODE_TABLE, data='root', parentID=0)
     self.storage.store(NODE_TABLE, data='1a', parentID=1)
     self.storage.store(NODE_TABLE, data='1b', parentID=1)
     self.storage.store(NODE_TABLE, data='1c', parentID=1)
@@ -789,6 +819,8 @@ def test_cache_hash(self):
     assert n1a.data == '1a'
 
     p1 = n1a.parent
+    assert p1.ID == 1
+    
     #import pdb; pdb.set_trace()
     self.assertEquals(3, len(self.clerk.cache.index[Node]['parent'][p1.ID]))
     
@@ -915,8 +947,7 @@ def disappearing_events_regression_test(self):
     # add more events while s.acc is a stub
     s = c2.fetch(Sub, ID=1)
     assert s.private.isDirty==False
-    #@TODO: maybe len() should trigger the lazyload...
-    assert len(s.acc.evts) == 0, [e.evt for e in s.acc.evts]
+    assert len(s.acc.evts) == 2, [e.evt for e in s.acc.evts]
     s.acc.evts << Evt(evt="3")
     #assert len(s.acc.evts) == 1, [e.evt for e in s.acc.evts]
     assert len(s.acc.evts) == 3, [e.evt for e in s.acc.evts]

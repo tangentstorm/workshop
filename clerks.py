@@ -101,7 +101,9 @@ class Clerk(object):
     def _makeStub(self, klass, ID):
         stub = klass(ID=ID)
         stub.private.isDirty = False
+        stub.private.isStub = True
         stub.addInjector(LinkInjector(self, klass, ID).inject)
+        self._addLinkSetInjectors(stub)
         self.cache.store(stub)
         return stub
 
@@ -151,50 +153,6 @@ class Clerk(object):
             for item in getattr(obj.private, name):
                 self._recursive_store(item, seen)
 
-
-        # this next bit is tricky.
-        #
-        # We should never have to add injectors to
-        # something we're saving to the database.
-        # Either it already has injectors, or it's
-        # completely new data.
-        #
-        # So this is okay.:
-
-        obj.private.dont_need_injectors = True
-
-        # But why is it necessary?
-        #
-        # Normally, we add injectors to every object
-        # we load from the database.
-        #
-        # But it's possible that under certain conditons,
-        # multiple linkSetInjectors can be added to the
-        # same object... this happens because...
-        # @TODO: WHY?????
-
-        # test_store_linksets shows an example, but why?
-        #
-        #
-        # But say we have a new object: (from test_store_linksets)
-        #
-        #    n1 = Node(data="a")
-        #    
-        #
-        # dont_need_injectors is there so that stubs can
-        # live happily in the cache and can be updated by
-        # _rowToInstance without getting yet another set of
-        # injectors added on. However, fresh objects that
-        # have never been stored should ALSO not have
-        # injectors (because all their data will be fresh
-        # or already processed by the clerk)... Since there's
-        # no other place to detect fresh objects, I put this
-        # here. I have a hunch that changing this to
-        # .need_injectors instead might simplify the logic
-        # considerably but this is working and at the moment
-        # I don't feel like changing it. :)
-        # @TODO: .dont_need_injectors => .need_injectors
-
         return obj
 
 
@@ -220,31 +178,44 @@ class Clerk(object):
             # in here we're dealing with either a brand new object...
             if cached is None:
                 obj = klass(**attrs)
+                self.cache.store(obj)
+
+                self._addLinksAndStubs(obj, othercols)
+                self._addLinkSetInjectors(obj)
+
 
             # or a cached object that hasn't been touched
+            # (either real but unused data, or a stub)
             elif cached and not cached.private.isDirty:
+
                 # if the object hasn't changed in ram, it's
-                # okay to refresh the data.
-                #
-                # whether it's WISE to do this is another question.
-                # But the tests say it's supposed to happen, and it
-                # seems harmless enough, so I'll keep it for now.
+                # okay to refresh the data. in fact, this
+                # is required if the cached version is just
+                # a stub!!
                 obj = cached
                 obj.update(**attrs)
+
+
+                if hasattr(cached.private, 'isStub'):
+                    # we don't add linkSET injectors here
+                    # because stubs already have them
+                    # what we're doing is adding new stubs
+                    # to the object that *used* to be a stub
+                    # until we updated it just now. We have to
+                    # add the new stubs now because this is the
+                    # only time we have access to the underlying
+                    # link IDs from the database (in othercols)
+                    self._addLinksAndStubs(obj, othercols)
+                    del cached.private.isStub
+                
             else:
                 raise AssertionError("this should not be possible.")
 
-            if hasattr(obj.private, "dont_need_injectors"):
-                pass
-            else:
-                obj.private.dont_need_injectors = True
-                self._addLinksAndStubs(obj, othercols)
-                self._addLinkSetInjectors(obj)
-            
+           
             obj.private.isDirty = False
-            self.cache.store(obj)
 
             return obj
+
 
 
     def _store_one_instance(self, obj):
@@ -306,8 +277,10 @@ class Clerk(object):
         Acts like .match(klass) but also allows indexing by a table.
         """
         if index:
-            sci = self.cache.index
             matches = self.match(klass)
+
+            # cache the matches
+            sci = self.cache.index
             for column in index:
                 sci.setdefault(klass, {}).setdefault(column, {})
                 
@@ -338,7 +311,8 @@ class Clerk(object):
         """
         if __ID__:
             assert not kw, "ID and where are mutually exclusive for fetch"
-            return self.matchOne(klass, ID=__ID__)
+            return (self.cache.get(klass, __ID__)
+                    or self.matchOne(klass, ID=__ID__))
         else:
             return self.matchOne(klass, **kw)
 
@@ -359,7 +333,7 @@ class Clerk(object):
         else:
             matches = [self._rowToInstance(row, klass)
                        for row in self.storage.match(self.schema.tableForClass(klass),
-                                                 *args, **kwargs)]
+                                                     *args, **kwargs)]
         if not (args or kwargs):
             self.cache.markCached(klass)
         return matches
@@ -450,29 +424,34 @@ class LinkInjector:
         However, it does preserve observers and
         any other injectors attached to the stub.
         """
-        if name == "ID":
-            pass # stubs have ID, so no need to load
+        if name == "ID" or isinstance(getattr(stub.__class__, name), linkset):
+            # stubs have .ID, so no need to load
+            # same thing with linksets!
+            pass 
         else:
+            stub.removeInjector(self.inject)
+
             old = stub.private
 
-            # we call fetch so we get stubs for all the
-            # new object's dependents
-            new = self.clerk.fetch(self.fclass, self.fID).private
+            raw = self.clerk.storage.fetch(
+                self.clerk.schema.tableForClass(self.fclass),
+                self.fID)
 
             # inject the data:
-            # ----
-            # @TODO: shouldn't this add stubs for all the other slots?
-            # otherwise parent.child.grandchild will always be none... won't it?
-            # ----
-            for slot, _ in stub.getSlots(): #WritableSlots():
-                if slot.startswith("_"): continue
-                setattr(old, slot, getattr(new, slot, None))
+            for slot in stub.listWritableSlots():
+                if slot in raw:
+                    setattr(old, slot, raw[slot])
+
+
+            attrs, othercols = self.clerk._writable_and_other_columns(self.fclass, raw)
+            self.clerk._addLinksAndStubs(stub, othercols)
+
+            
             old.isDirty = False
 
             # since we might have observers, we'll
             # let them know:
             stub.notifyObservers("inject", "inject")
-            stub.removeInjector(self.inject)
 
 
 
@@ -499,9 +478,12 @@ class LinkSetInjector:
         if name == self.name:
             box.removeInjector(self.inject)
 
-            theLinkSet = getattr(box, self.linksetAttr.name)
+            # here we're using the class attribute
             childType = self.linksetAttr.type
             backName = self.linksetAttr.back
+
+            # this is the actual linkset instance:
+            theLinkSet = getattr(box.private, name)
 
             # cached table optimization:
             if childType in self.clerk.cache.allCached:
@@ -514,7 +496,7 @@ class LinkSetInjector:
                         [theLinkSet << obj for obj in kids]
 
                 else:
-                    
+
                     # no index on this column
                     for obj in self.clerk.cache.data[childType].values():
                         backLink = getattr(obj, backName)
@@ -522,9 +504,7 @@ class LinkSetInjector:
                             theLinkSet << obj
             else:
                 # no cache at all; hit the database.
-                table = self.clerk.schema.tableForClass(childType)
-                for row in self.clerk.storage.match(table, **{self.fkey:box.ID}):
-                    obj = self.clerk._rowToInstance(row, childType)
+                for obj in self.clerk.match(childType, **{self.fkey:box.ID}):
                     theLinkSet << obj
 
 
