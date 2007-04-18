@@ -34,6 +34,7 @@ class Cache(object):
     """
     def __init__(self):
         self.data = {}
+        self.allCached = {}
 
     def __getitem__(self, (klass, ID)):
         # for the test cases
@@ -41,6 +42,14 @@ class Cache(object):
 
     def __setitem__(self, (klass, ID), value):
         self.data.setdefault(klass, {})[ID] = value
+
+
+    def markCached(self, klass):
+        self.allCached[klass] = True 
+
+    def clear(self):
+        self.data.clear()
+
 
     def get(self, klass, key):
         try:
@@ -54,8 +63,6 @@ class Cache(object):
         else:
             raise Warning("couldn't memo %s because it had no ID attribute" % obj)
 
-    def clear(self):
-        self.data.clear()
 
 
 class Clerk(object):
@@ -67,8 +74,7 @@ class Clerk(object):
 
     def __init__(self, storage, schema):
         self.storage = storage
-        self.schema = schema      
-        # @TODO: WeakValueDictionary() ... doesn't work with strongbox. Why?!
+        self.schema = schema
         self.cache = Cache()
 
 
@@ -294,6 +300,13 @@ class Clerk(object):
     ## public interface ##############################################
         
 
+    def cacheAll(self, klass):
+        """
+        Really just an alias for match with no arguments
+        """
+        self.match(klass)
+       
+
     def delete(self, klass, ID): #@TODO: ick!!
         """
         Delete the instance of klass with the given ID
@@ -318,9 +331,22 @@ class Clerk(object):
         """
         Returns a row of matched objects.
         """
-        return [self._rowToInstance(row, klass)
-                for row in self.storage.match(self.schema.tableForClass(klass),
-                                              *args, **kwargs)]
+        if (klass in self.cache.allCached) and (not args):
+            # @TODO: real where clauses for live objects
+            matches = []
+            for item in self.cache.data[klass].values():
+                keepThisOne = True
+                for k,v in kwargs.items():
+                    if getattr(item, k) != v:
+                        keepThisOne = False
+                if keepThisOne: matches.append(item)
+        else:
+            matches = [self._rowToInstance(row, klass)
+                       for row in self.storage.match(self.schema.tableForClass(klass),
+                                                 *args, **kwargs)]
+        if not (args or kwargs):
+            self.cache.markCached(klass)
+        return matches
 
     def matchOne(self, klass, *arg, **kw):
         """
