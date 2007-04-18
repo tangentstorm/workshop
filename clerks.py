@@ -28,6 +28,35 @@ def _linksAndValues(obj):
             # that only contain the ID. As long as we only look at ref.ID,
             # this won't load data un-necessarily.
 
+class Cache(object):
+    """
+    Cache[klass][ID] = instance
+    """
+    def __init__(self):
+        self.data = {}
+
+    def __getitem__(self, (klass, ID)):
+        # for the test cases
+        return self.data[klass][ID]
+
+    def __setitem__(self, (klass, ID), value):
+        self.data.setdefault(klass, {})[ID] = value
+
+    def get(self, klass, key):
+        try:
+            return self.data[klass][key]
+        except KeyError:
+            return None
+
+    def store(self, obj):
+        if hasattr(obj, "ID"):
+            self[(obj.__class__, obj.ID)]=obj
+        else:
+            raise Warning("couldn't memo %s because it had no ID attribute" % obj)
+
+    def clear(self):
+        self.data.clear()
+
 
 class Clerk(object):
     """
@@ -40,7 +69,7 @@ class Clerk(object):
         self.storage = storage
         self.schema = schema      
         # @TODO: WeakValueDictionary() ... doesn't work with strongbox. Why?!
-        self.cache = {}
+        self.cache = Cache()
 
 
     def _addLinksAndStubs(self, obj, othercols):
@@ -48,7 +77,7 @@ class Clerk(object):
             fID = othercols.get(self.schema.columnForLink(lnk))
             if fID:
                 setattr(obj, name,
-                        (self._get_memo(lnk.type, fID)
+                        (self.cache.get(lnk.type, fID)
                          or self._makeStub(lnk.type, fID)))
             else:
                 pass # obj.whatever is None, so no stub/memo needed
@@ -62,23 +91,12 @@ class Clerk(object):
             obj.addInjector(LinkSetInjector(name, self, ls.type, column).inject)
 
 
-    def _get_memo(self, klass, key):
-        return self.cache.get((klass, key))
-
-
     def _makeStub(self, klass, ID):
         stub = klass(ID=ID)
         stub.private.isDirty = False
         stub.addInjector(LinkInjector(self, klass, ID).inject)
-        self._put_memo(stub)
+        self.cache.store(stub)
         return stub
-
-
-    def _put_memo(self, obj):
-        if hasattr(obj, "ID"):
-            self.cache[(obj.__class__, obj.ID)]=obj
-        else:
-            raise Warning("couldn't memo %s because it had no ID attribute" % obj)
 
 
     def _recursive_store(self, obj, seen):
@@ -175,7 +193,7 @@ class Clerk(object):
 
     def _rowToInstance(self, row, klass):
         attrs, othercols = self._writable_and_other_columns(klass, row)
-        cached = self._get_memo(klass, attrs.get("ID"))
+        cached = self.cache.get(klass, attrs.get("ID"))
 
         # the rule: changes in ram trump changes is the DB
         # otherwise, you can make changes, think you're saving
@@ -217,7 +235,7 @@ class Clerk(object):
                 self._addLinkSetInjectors(obj)
             
             obj.private.isDirty = False
-            self._put_memo(obj)
+            self.cache.store(obj)
 
             return obj
 
@@ -240,7 +258,7 @@ class Clerk(object):
 
             # and since this may be the first time we're seeing this object
             # (i.e., it may be the initial save of new data), stick it in the cache:
-            self._put_memo(obj)
+            self.cache.store(obj)
 
         else:
             pass # object hasn't changed since we loaded it, so don't bother saving
