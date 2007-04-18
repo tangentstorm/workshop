@@ -232,16 +232,14 @@ for <code>setattr</code>. The complete decorator looks like
 this:</p>
 """
 def testcase(f):
-    # create a new class:
-    class NewTest(unittest.TestCase):
-        pass
+    testName = f.func_name
+    if not testName.startswith('test'):
+        testName = 'test_%s' % testName
+    
+    testClass = new.classobj(testName, (unittest.TestCase,), {})
+    setattr(testClass, testName, new.instancemethod(f, None, testClass))
 
-    # add the test() method
-    setattr(NewTest, "test",
-            new.instancemethod(f, None, NewTest))
-
-    # and return it
-    return NewTest
+    return testClass
 
 
 # * <a name="snapshot">A Decorator to Mark Code as Unfinished</a>
