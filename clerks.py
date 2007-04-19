@@ -36,6 +36,7 @@ class Cache(object):
         self.data = {}
         self.index = {}
         self.allCached = {}
+        self.caching = [] # klasses currently being cached
 
     def __getitem__(self, (klass, ID)):
         # for the test cases
@@ -103,7 +104,10 @@ class Clerk(object):
         stub = klass(ID=ID)
         stub.private.isDirty = False
         stub.private.isStub = True
-        stub.addInjector(LinkInjector(self, klass, ID).inject)
+        if klass not in self.cache.caching:
+            stub.addInjector(LinkInjector(self, klass, ID).inject)
+        else:
+            pass # no point adding injectors if we're loading the whole table
         self._addLinkSetInjectors(stub)
         self.cache.store(stub)
         return stub
@@ -278,24 +282,22 @@ class Clerk(object):
         """
         Acts like .match(klass) but also allows indexing the cache by columns.
         """
+        self.cache.caching.append(klass)
         if index:
             matches = self.match(klass)
             
             # cache the matches
             sci = self.cache.index
             for column in index:
+                # this means: cache.index[klass][column][value]=[]
                 sci.setdefault(klass, {}).setdefault(column, {})
 
-                
-            for item in matches:
+            for obj in matches:
                 for column in index:
-                    # use item.private here so we don't trigger
-                    # another query if the table is self-referential
-                    # (because we might be loading a 
-                    thing = getattr(item.private,column)
+                    thing = getattr(obj, column)
                     if hasattr(thing, "ID"): thing = thing.ID
                     sci[klass][column].setdefault(thing,[])
-                    sci[klass][column][thing].append(item)
+                    sci[klass][column][thing].append(obj)
 
             return matches
         else:
@@ -433,7 +435,7 @@ class LinkInjector:
         if name == "ID" or isinstance(getattr(stub.__class__, name), linkset):
             # stubs have .ID, so no need to load
             # same thing with linksets!
-            pass 
+            pass
         else:
             stub.removeInjector(self.inject)
 
@@ -509,9 +511,8 @@ class LinkSetInjector:
                 # see if there's an index for this column
                 sci = self.clerk.cache.index
                 if (childType in sci) and backName in sci[childType]:
-                    kids = sci[childType].get(box.ID)
-                    if kids:
-                        [theLinkSet << obj for obj in kids]
+                    for kid in sci[childType][backName].get(box.ID, []):
+                        theLinkSet << kid
 
                 else:
 

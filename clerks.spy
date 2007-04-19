@@ -912,6 +912,36 @@ def test_cached_link_injection(self):
 
 
 
+# ** linksetinjectors and the cache
+"""
+Here's the same deal for linksetinjectors
+"""
+
+@addMethod(ClerkTest)
+def test_cached_linkset_injection(self):
+    self.storage.store(NODE_TABLE, data="top", parentID=None)
+    self.storage.store(NODE_TABLE, data="a",   parentID=1)
+    self.storage.store(NODE_TABLE, data="a.a", parentID=2)
+    self.storage.store(NODE_TABLE, data="b",   parentID=1)
+
+    # cache and drop table
+    self.clerk.cacheAll(Node)
+    self.storage.delete(NODE_TABLE, 1)
+    self.storage.delete(NODE_TABLE, 2)
+    self.storage.delete(NODE_TABLE, 3)
+    self.storage.delete(NODE_TABLE, 4)
+
+    top = self.clerk.fetch(Node, 1)
+    assert top.kids[0].data == "a"
+    assert top.kids[1].data == "b"
+    assert top.kids[1].kids == []
+    assert top.kids[0].kids[0].data == "a.a"
+
+
+
+
+
+
 # ** speeding up linksets with cached tables
 """
 If we know that the entire table is cached, we can speed
@@ -1033,6 +1063,57 @@ def test_cache_hash(self):
     #import pdb; pdb.set_trace()
     self.assertEquals(3, len(self.clerk.cache.index[Node]['parent'][p1.ID]))
     
+
+
+# ** linksetinjectors and the cache
+"""
+Here we're doing the same thing as test_linkset_injection
+and test_cached_linkset_injection, but now, we're going to
+index the .parent backlink.
+
+Why would indexing potentially make a difference?
+
+Well, the LinkSetInjector takes a completely different execution
+path when the field in question is indexed: instead of searching
+through the cached table, it goes directly to the index.
+
+"""
+
+@addMethod(ClerkTest)
+def test_indexed_linkset_injection(self):
+    self.storage.store(NODE_TABLE, data="top", parentID=None)
+    self.storage.store(NODE_TABLE, data="a",   parentID=1)
+    self.storage.store(NODE_TABLE, data="a.a", parentID=2)
+    self.storage.store(NODE_TABLE, data="b",   parentID=1)
+
+    # cache and drop table
+    self.clerk.cacheAll(Node, index=['parent'])
+    self.storage.delete(NODE_TABLE, 1)
+    self.storage.delete(NODE_TABLE, 2)
+    self.storage.delete(NODE_TABLE, 3)
+    self.storage.delete(NODE_TABLE, 4)
+
+    index = self.clerk.cache.index[Node]['parent']
+
+    # the index should have keys for each parentID
+    assert type(index) is dict
+    assert 1 in index
+    assert 2 in index
+    assert 3 not in index
+    assert None in index # though we should probably use 0
+
+    # the index should have two entries:
+    assert len(index[1]) == 2
+    assert index[1][0].data == 'a'
+    assert index[1][1].data == 'b'
+
+    # and that's exactly what we want when we ask for top.kids
+    top = self.clerk.fetch(Node, 1)
+    assert top.kids[0].data == "a"
+    assert top.kids[1].data == "b"
+    assert top.kids[1].kids == []
+    assert top.kids[0].kids[0].data == "a.a"
+
     
 
 # * callbacks
