@@ -6,26 +6,55 @@ from clerks import *
 from storage import RamStorage
 import unittest
 
-# * intro: what are clerks?
+# * Clerk: Executive Overview
 """
-Clerks are little objects that fetch and store strongbox-style
-data objects from a database or other data store. If your data
-store is a relational database, then you can think of a Clerk as
-an object-relational-mapper.
+Use the clerks module if:
 
-Clerks also work with strongboxen to let you load data on the fly.
-That is, if you have a tree of objects, you can load the top one,
-and the children are only loaded when you actually access them.
+  - you want to load, save, and query data objects
+    in some kind of persistent storage system such
+    as a relational database.
 
-Note that the objects never talk to the database directly. Why? Well,
-the main idea is that sometimes, especially for testing, you want
-to create objects that don't live in the database. I used to use
-records that were tightly bound to the database, but I found it
-was easier to just use one 'Clerk' object.
+  - You want to load and save large graphs of
+    interconnected objects efficiently, (lazy
+    loading and caching)
 
+  - You want to add arbitrary behavior when you
+    save objects.
+
+
+You use clerks, you need:
+
+  - you use strongbox to define your data classes
+  
+  - you follow the convention of giving all objects a numeric ID
+  
+  - you use one of the storage backends provided by the storage
+    module (including RamStorage if you just want an in-memory database)
+
+
+Clerks allo you write efficient code in both short-lived
+CGI-like environments (thanks to lazy loading), as well
+as long-running server processes (where caching and
+indexing allow fast in-memory operations).
+
+Because clerks rely heavily on caching, they are NOT designed
+to be used in long-running servers where other programs are
+making frequent changes to the underlying database. (It's okay
+for any number of clients to read the database, of course).
+Rather, all clients should write data by dealing directly
+with the Clerk.
 """
 
-# * test conventions used for Clerk
+# * about this document
+"""
+This document serves as exectuable specification for clerks.
+It contains a detailed explanation of the module as well
+as numerous code sections that serve both as unit tests
+and examples for users.
+"""
+
+
+# * objects used in the examples
 
 class Record(Strongbox):
     ID = attr(long)
@@ -38,8 +67,27 @@ class Node(Strongbox):
     parent = link(lambda : Node)
     kids = linkset((lambda : Node), "parent")
 
+
+
+"""
+We'll store each Record in a table called 'records_table'
+and we'll use a column called 'nextID' to hold the ID
+of the 'next' link.
+"""
+
 RECORD_TABLE = "record_table"
 NODE_TABLE = "node_table"
+
+
+
+"""
+To make this work, we need to define a schema.
+The schema is just a wrapper around a dictionary,
+which maps classes to table names and link attributes
+to foreign key column names.
+
+Here is the schema for our Record object:
+"""
 
 TEST_SCHEMA = Schema({
     Node: NODE_TABLE,
@@ -49,6 +97,18 @@ TEST_SCHEMA = Schema({
 })
 
 
+"""
+Here is are top level test structure. Many of our
+test classes share a common setup, so it makes sense
+to group them into a single TestCase class.
+
+Since these are just tests, we'll be using a RamStorage
+object, which is a simple collection of tables that stay
+in memory. The exact same concepts apply to any storage
+backend, however - including MySQL, SQLite, or any other
+service implementing the storage interface.
+"""
+
 class ClerkTest(unittest.TestCase):
     def setUp(self):
         self.storage = RamStorage()
@@ -56,7 +116,7 @@ class ClerkTest(unittest.TestCase):
 
 
 
-# * basic interface: .store and .fetch
+# * basic usagenterface: .store and .fetch
 """
 You need these things to use clerk:
 
@@ -65,22 +125,6 @@ You need these things to use clerk:
   - a storage object (see storage.py)
   - a clerks.Schema object (see below)
 
-We'll store each Record in a table called 'records_table'
-and we'll use a column called 'nextID' to hold the ID
-of the 'next' link.
-
-To make this work, we need to define a schema.
-The schema is just a wrapper around a dictionary,
-which maps classes to table names and link attributes
-to foreign key column names.
-
-Here is the schema for our Record object:
-"""
-
-
-"""
-We'll just use a RamStorage instance for our storage
-so we don't have to worry about setting up a database.
 
 Here's how to store and retrieve a record:
 """
@@ -140,6 +184,18 @@ def test_store_again(self):
     r = self.clerk.fetch(Record, 1)
     r.value = "abc"
     self.clerk.store(r)
+    assert len(self.storage.match(RECORD_TABLE))==1
+
+
+"""
+Note that if you store an object that's connected to
+other objects through strongbox.link , it saves the
+linked object first.
+
+This makes sense, because in order to store a foreign
+key reference in the database, we've got to store the
+foreign object and get its auto-generated key value.
+"""
 
 @addMethod(ClerkTest)
 def test_store_link(self):
@@ -162,6 +218,13 @@ def test_store_link(self):
     self.clerk.store(r)
     r = self.clerk.fetch(Record, value="noNext")
     assert r.next is None
+
+
+"""
+However, with linksets, we have the opposite situation.
+The parent object has to be stored first so the child
+objects can reference its primary key.
+"""
 
 @addMethod(ClerkTest)
 def test_store_linksets(self):
@@ -204,6 +267,7 @@ def test_fetch(self):
     assert obj.value == "howdy"
 
     # or we can use keywords:
+    # @TODO: this should probably be deprecated in favor of .matchOne
     obj = self.clerk.fetch(Record, value="howdy")
     assert obj.value == "howdy"
 
@@ -262,7 +326,7 @@ def test_fetch_with_calculated_columns(self):
 
 
 
-# * matching multiple objects
+# * matching objects
 
 @addMethod(ClerkTest)
 def test_match(self):
@@ -272,6 +336,9 @@ def test_match(self):
     assert len(self.clerk.match(Record, value="zero")) == 0
     assert len(self.clerk.match(Record, value="one")) == 1
     assert len(self.clerk.match(Record, value="two")) == 2
+
+
+# @TODO: ought to have a test case about where/arlo
 
 
 @addMethod(ClerkTest)
@@ -296,7 +363,14 @@ def test_matchOne(self):
 
 
 # * deleting objects
+"""
+To delete an object, you simply pass the class and
+key to clerk.delete()
 
+Note that you are responsible for unlinking the
+object from other objects in memory so that the
+object does not get re-saved to the database.
+"""
 
 @addMethod(ClerkTest)
 def test_delete(self):
@@ -306,7 +380,48 @@ def test_delete(self):
 
 
 
-# * Lazyloading with Injectors
+# * Lazyloading with Stubs and Injectors
+
+# ** what are stubs?
+"""
+Stubs are simply strongboxes that have not yet been filled in.
+
+Every strongbox can at least potentially correspond to a row in
+the database. Stubs are no exception, but they correspond to rows
+that the clerk has not yet loaded.
+
+For example, given a child table with a parentID field, and
+a row where parentID=5 , we can infer the existence of a row
+in the parent table having ID=5. 
+
+When clerk encounters this situation, it will simply create a new
+strongbox, Parent(ID=5).
+
+Now you can assert that  child.parent.ID == 5
+
+But what happens when you ask for child.parent.name ?
+The name field is still stored in the database.
+
+Remember, a strongbox is not tightly coupled to the storage
+mechanism. This means it does not have access to the Clerk object,
+so it cannot simply load the data.
+
+Instead, strongboxes implement an interface called Injectable,
+similar to the Observable interface from the Obsever Design Pattern
+(which strongbox also implements).
+
+Basically, strongbox allows you to register a callback that gets
+fired off whenever a field like .name is accessed. The injector
+can then insert (or modify) the data automatically *before* the
+.name field is returned to the caller.
+
+Clerks utilize two types of Injectors:
+
+  LinkInjector populates in a single stub with live data.
+  LinkSetInjector populates a linkset with live objects.
+
+"""
+
 # ** what are injectors?
 """
 Imagine that you have a tree of objects 10 levels deep. For
@@ -377,20 +492,36 @@ But what if it's a 1-1 relationship? some options:
 
 Arlo takes option c or d. option b would be nice but isn't
 implemented.  So I want to show that you can load a hollow manager
-object and it will know it's ID, and can therefore load its projects
+object and it will know its ID, and can therefore load its projects
 without ever reading the manager data from the database!!
 
 What about the tree explosion? Well, you can just read the
 whole table at once up front...
 
 
-
-302 stopped to fold laundry ----- [0116.2006 03:02PM]
-
 """
 # ** LinkInjector
 
 
+@addMethod(ClerkTest)
+def test_link_injection(self):
+    self.storage.store(RECORD_TABLE, value="a", nextID=2)
+    self.storage.store(RECORD_TABLE, value="b", nextID=3)
+    self.storage.store(RECORD_TABLE, value="c", nextID=None)
+
+    a = self.clerk.fetch(Record, 1)
+
+    self.assertEquals('a', a.value)
+    assert a.next.private.isStub
+    assert len(a.next.private.injectors) == 1
+    self.assertEquals('b', a.next.value)
+    self.assertEquals('c', a.next.next.value)
+    assert a.next.next.next is None
+
+
+"""
+Here's a more involved example.
+"""
 
 @testcase
 def test_link_inject(self):
@@ -408,8 +539,6 @@ def test_link_inject(self):
     class Local(Strongbox):
         ref = link(Foreign)
 
-
-
     schema = Schema({
         Foreign: "foregin",
         Local: "local",
@@ -417,12 +546,20 @@ def test_link_inject(self):
     })
     clerk = RamClerk(schema)
 
-    obj = Local()
-    assert obj.ref is None
-
+    # first, we store an object...
     clerk.store(Foreign(data="Here I come to save the day!"))
 
+    # now here's the local object with a stubbed out reference
+    # to that object.
+    
+    # (note: you wouldn't normally do this by hand, since
+    # clerk does it for you)
+    
+    obj = Local()
+    assert obj.ref is None
     obj.ref = Foreign(ID=1)
+    obj.ref.private.isStub = True # required!
+
     obj.ref.addInjector(LinkInjector(clerk, Foreign, 1).inject)
     assert len(obj.ref.private.injectors) == 1
 
@@ -431,52 +568,26 @@ def test_link_inject(self):
     assert obj.ref.private.data == ""
     assert len(obj.ref.private.injectors) == 1
 
-    # but getting any other field triggers the load!
-    assert obj.ref.data == "Here I come to save the day!"
+    # but getting any other field triggers the load...
+    self.assertEquals("Here I come to save the day!", obj.ref.data)
     assert len(obj.ref.private.injectors) == 0
 
 
-@testcase
-def test_linkinjector_with_linkset(self):
-    """
-    what happens if the thing we're injecting
-    has a linkset of its own (this used to fail)
-    """
+# ** LinksetInjector
 
-    class Kid(Strongbox):
-        ID = attr(long)
-        parent = link(lambda : Parent)
+@addMethod(ClerkTest)
+def test_linkset_injection(self):
+    self.storage.store(NODE_TABLE, data="top", parentID=None)
+    self.storage.store(NODE_TABLE, data="a",   parentID=1)
+    self.storage.store(NODE_TABLE, data="a.a", parentID=2)
+    self.storage.store(NODE_TABLE, data="b",   parentID=1)
 
-    class Parent(Strongbox):
-        ID = attr(long)
-        name = attr(str)
-        kids = linkset(Kid, "parent")
+    top = self.clerk.fetch(Node, 1)
+    assert top.kids[0].data == "a"
+    assert top.kids[1].data == "b"
+    assert top.kids[1].kids == []
+    assert top.kids[0].kids[0].data == "a.a"
 
-    class Uncle(Strongbox):
-        brother = link(Parent)
-
-    schema = Schema({
-        Kid: "kid",
-        Kid.parent: "parentID",
-        Parent: "parent",
-        Uncle: "uncle",
-        Uncle.brother: "brotherID",
-    })
-    clerk = RamClerk(schema)
-
-
-    kid = Kid()
-    dad = Parent(name="Brother Dad")
-    dad.kids << kid
-    clerk.store(dad)
-
-    unc = Uncle()
-    unc.brother = Parent(ID=1)
-    unc.brother.addInjector(LinkInjector(clerk, Parent, 1).inject)
-
-    ## this next line threw an AttributeError because the
-    ## injector tried to include "kids" in the .update() call
-    assert unc.brother.name=="Brother Dad"
 
 
 @testcase
@@ -492,8 +603,6 @@ def test_linkset_inject(self):
     class Package(Strongbox):
         ID = attr(long)
         refs = linkset(Content, "box")
-
-
 
 
     ms = RamStorage()
@@ -534,39 +643,60 @@ def test_linkset_inject(self):
     assert len(pak.refs) == 3
 
 
-@addMethod(ClerkTest)
-def test_link_injection(self):
-    self.storage.store(RECORD_TABLE, value="a", nextID=2)
-    self.storage.store(RECORD_TABLE, value="b", nextID=3)
-    self.storage.store(RECORD_TABLE, value="c", nextID=None)
+# ** using links and linksets together
 
-    a = self.clerk.fetch(Record, 1)
+@testcase
+def test_linkinjector_with_linkset(self):
+    """
+    what happens if the thing we're injecting
+    has a linkset of its own (this used to fail)
+    """
 
-    assert a.value == "a"
-    assert a.next.value == "b"
-    assert a.next.next.value == "c"
-    assert a.next.next.next is None
+    class Kid(Strongbox):
+        ID = attr(long)
+        parent = link(lambda : Parent)
+
+    class Parent(Strongbox):
+        ID = attr(long)
+        name = attr(str)
+        kids = linkset(Kid, "parent")
+
+    class Uncle(Strongbox):
+        brother = link(Parent)
+
+    schema = Schema({
+        Kid: "kid",
+        Kid.parent: "parentID",
+        Parent: "parent",
+        Uncle: "uncle",
+        Uncle.brother: "brotherID",
+    })
+    clerk = RamClerk(schema)
 
 
-@addMethod(ClerkTest)
-def test_linkset_injection(self):
-    self.storage.store(NODE_TABLE, data="top", parentID=None)
-    self.storage.store(NODE_TABLE, data="a",   parentID=1)
-    self.storage.store(NODE_TABLE, data="a.a", parentID=2)
-    self.storage.store(NODE_TABLE, data="b",   parentID=1)
+    kid = Kid()
+    dad = Parent(name="Brother Dad")
+    dad.kids << kid
+    clerk.store(dad)
 
-    top = self.clerk.fetch(Node, 1)
-    assert top.kids[0].data == "a"
-    assert top.kids[1].data == "b"
-    assert top.kids[1].kids == []
-    assert top.kids[0].kids[0].data == "a.a"
+    # here, we're making a stub by hand again.
+    # again, you normally don't do this by hand.
+    unc = Uncle()
+    unc.brother = Parent(ID=1)
+    unc.brother.private.isStub = True
+    unc.brother.addInjector(LinkInjector(clerk, Parent, 1).inject)
+
+    ## this next line threw an AttributeError because the
+    ## injector tried to include "kids" in the .update() call
+    self.assertEquals("Brother Dad", unc.brother.name)
 
 
-
-
-
-# * dirty little objects
-
+# * avoiding unnecessary writes: the private.isDirty flag
+"""
+Every Strongbox has a (semi) private .isDirty flag.
+When this flag is set to False, the clerk will not
+bother updating the storage.
+"""
 @addMethod(ClerkTest)
 def test_dirt(self):
     # dirty by default (already tested in strongbox)
@@ -587,7 +717,7 @@ def test_dirt(self):
 
 
 @addMethod(ClerkTest)
-def test_recursion(self):
+def test_dirty_recursion(self):
     r = Record()
     r.next = Record()
     r.next.next = r
@@ -624,8 +754,14 @@ def test_stub(self):
 
 # * caching objects
 """
+The cache is there so we don't have to repeatedly request
+data from the database.
+
+
 The cache is currently implemented as a dictionary mapping
-clases to dictionaries of instances.
+clases to dictionaries of instances. That is:
+
+   cache.data[Class][instance.ID] = instance
 
 The reason for this organization is so that we can cache
 entire tables of objects at once, and can quickly scan through
@@ -701,6 +837,79 @@ def test_cached_class(self):
     a = self.clerk.matchOne(Record, value='a')
     assert a.ID == 1
     assert a.value == 'a'
+
+
+# ** linkinjectors and the cache
+"""
+Here's our basic linkinjector test again, but this
+time, we're going to rely on the cache.
+
+When we call .cacheAll(Record) here, each row in the
+database is converted into an object.
+
+Since we happen to be using a RamStorage for these tests,
+the RECORD_TABLE records will be matched in the order
+they were defined -- that's just how RamStorage works.
+
+So imagine what happens as we cache the table:
+
+  - the first record, ID=1, value='a' , nextID=2 is encountered
+  - the record with ID=2 has not been seen yet, so a stub is created:
+      - rec2Stub = Record(ID=2) # + injectors
+  - and cached:
+      - cache[Record,2] <= rec2Stub
+  - the stub is added to a live object for the first row:
+      - rec1 =  Record(value='a', next=rec2Stub)
+  - the live record is cached:
+      - cache[Record,1] <= rec1
+  
+  - now we match the second row, with ID=2, value='a', nextID=3
+  - cache[Record, 2] already exists, so we just use it:
+      - rec2 = cache[Record,2]
+  - we create a stub for rec3:
+      - rec3stub = ...
+  - since we have the live data, we can fill it in:
+      - rec2.private.value='a'
+      - rec2.private.next = rec3Stub
+
+At this point we have 2 live objects and a stub.
+
+But wait a second! What about the injectors we added to record
+2 when it was a stub? They're still there! So now, when we ask
+for rec1.next.value ... It hits up the storage system again! All
+our caching effort was wasted.
+
+So.. To keep that from happening, the linkinjector always checks
+to make sure the object is still a stub before it does anything.
+
+@TODO: when caching entire tables, mark them somehow so that
+the LinkInjectors aren't added to stubs in the first place.
+
+"""
+
+@addMethod(ClerkTest)
+def test_cached_link_injection(self):
+    self.storage.store(RECORD_TABLE, value="a", nextID=2)
+    self.storage.store(RECORD_TABLE, value="b", nextID=3)
+    self.storage.store(RECORD_TABLE, value="c", nextID=None)
+
+    # cache the objects and drop the underlying table
+    self.clerk.cacheAll(Record)
+    self.storage.delete(RECORD_TABLE, 1)
+    self.storage.delete(RECORD_TABLE, 2)
+    self.storage.delete(RECORD_TABLE, 3)
+
+    a = self.clerk.fetch(Record, 1)
+
+    self.assertEquals('a', a.value)
+
+    # if a.next.value fires off an injector,
+    # this next line will hit the empty table and crash!
+    self.assertEquals('b', a.next.value)
+    self.assertEquals('c', a.next.next.value)
+    assert a.next.next.next is None
+
+
 
 
 # ** speeding up linksets with cached tables
@@ -827,6 +1036,14 @@ def test_cache_hash(self):
     
 
 # * callbacks
+"""
+Callbacks allow you to fire off arbitrary code whenever
+you store an instance of a particular class.
+
+For example, one application of this is to add the object's
+content to a secondary data store (such as a local search
+engine index).
+"""
 
 @testcase
 def test_callbacks(self):
@@ -867,6 +1084,10 @@ def test_callbacks(self):
 
 
 # * schema objects
+"""
+The Schema class has a number of utility methods
+used internally by the clerks module:
+"""
 
 @testcase
 def test_schema(self):
@@ -893,18 +1114,20 @@ def test_schema(self):
 
 
 
-# * regression tests
+# * appendix: regression tests
+"""
+These are some more complicated tests and scenarios that
+exposed bugs in the past.
+"""
 
 @testcase
 def disappearing_events_regression_test(self):
     """
     This bug came from duckbill. A subscription
     would post events to its account, and then
-    when it showed the statements the new events
+    when it showed the statement, the new events
     would be the only ones to show up - even though
     there were still others in the database.
-
-    In other words, the injector wasn't working.
 
     Turns out the problem was that the sub.account
     stub didn't have injectors on ITS dependent
@@ -966,17 +1189,16 @@ def disappearing_events_regression_test(self):
 def complex_recursion_regression_test(self):
     """
     test case from cornerhost that exposed a bug.
-    this is probably redundant given test_recursion
-    but it doesn't hurt to keep it around. :)
 
-    This test is complicated. Basically it sets up
-    several classes that refer to each other in a loop
-    and makes sure it's possible to save them without
-    infinite recursion.
+    Basically it sets up several classes that refer
+    to each other in a loop and makes sure it's
+    possible to save them without infinite recursion.
 
-    @TODO: isInstance(LinkSetInjector) in Clerk.py need tests
-    It ought to do some kind of polymorphism magic anyway.
-    (huh??)
+    @TODO: isInstance(LinkSetInjector) in Clerk.py
+    needs tests It ought to do some kind of polymorphism
+    magic anyway.
+
+    @TODO: huh?? :)
     """
 
     class User(Strongbox):

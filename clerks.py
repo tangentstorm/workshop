@@ -62,7 +62,8 @@ class Cache(object):
         if hasattr(obj, "ID"):
             self[(obj.__class__, obj.ID)]=obj
         else:
-            raise Warning("couldn't memo %s because it had no ID attribute" % obj)
+            raise Warning("couldn't memo %s because it had no ID attribute"
+                          % obj)
 
 
 
@@ -83,7 +84,7 @@ class Clerk(object):
         for name, lnk in obj.getSlotsOfType(link):
             fID = othercols.get(self.schema.columnForLink(lnk))
             if fID:
-                setattr(obj, name,
+                setattr(obj.private, name,
                         (self.cache.get(lnk.type, fID)
                          or self._makeStub(lnk.type, fID)))
             else:
@@ -158,63 +159,60 @@ class Clerk(object):
 
     def _rowToInstance(self, row, klass):
         attrs, othercols = self._writable_and_other_columns(klass, row)
-        cached = self.cache.get(klass, attrs.get("ID"))
 
-        # the rule: changes in ram trump changes is the DB
-        # otherwise, you can make changes, think you're saving
-        # them, and find out your changes were discarded. That
-        # would be bad. So:
-        #
-        # @TODO: write an explicit test to expose this condition
-        # (it would happen if you have an object in ram and then load
-        # it again - perhaps through some other objects linkset... and
-        # of course if the code here didn't fix the problem. :))
-        if (cached) and (cached.private.isDirty):
-
-            return cached
         
-        else:
+        cached = self.cache.get(klass, attrs.get("ID"))
+        if cached:
+
+            obj = cached
+
+            # the rule: changes in ram trump changes is the DB
+            # otherwise, you can make changes, think you're saving
+            # them, and find out your changes were discarded. That
+            # would be bad. So only update clean objects.
             
-            # in here we're dealing with either a brand new object...
-            if cached is None:
-                obj = klass(**attrs)
-                self.cache.store(obj)
+            # @TODO: write an explicit test to expose this condition
+            # (it would happen if you have an object in ram and then load
+            # it again - perhaps through some other objects linkset... and
+            # of course if the code here didn't fix the problem. :))
 
-                self._addLinksAndStubs(obj, othercols)
-                self._addLinkSetInjectors(obj)
+            # if the object hasn't changed in ram, it's
+            # okay to refresh the data. in fact, this
+            # is required if the cached version is just
+            # a stub!!
+            if obj.private.isDirty == False:
 
-
-            # or a cached object that hasn't been touched
-            # (either real but unused data, or a stub)
-            elif cached and not cached.private.isDirty:
-
-                # if the object hasn't changed in ram, it's
-                # okay to refresh the data. in fact, this
-                # is required if the cached version is just
-                # a stub!!
                 obj = cached
                 obj.update(**attrs)
+                # but now it is dirty, so mark it clean:
+                obj.private.isDirty = False
 
+            if hasattr(obj.private, 'isStub'):
+                # The object is marked as a stub, but it's
+                # not a stub anymore, because we just filled it in!
+                # So we have to fix that.
+                del obj.private.isStub
 
-                if hasattr(cached.private, 'isStub'):
-                    # we don't add linkSET injectors here
-                    # because stubs already have them
-                    # what we're doing is adding new stubs
-                    # to the object that *used* to be a stub
-                    # until we updated it just now. We have to
-                    # add the new stubs now because this is the
-                    # only time we have access to the underlying
-                    # link IDs from the database (in othercols)
-                    self._addLinksAndStubs(obj, othercols)
-                    del cached.private.isStub
+                # Also, since we have the foreign keys now
+                # (in the othercols dict),  we need to take
+                # this opportunity to add new stubs for all
+                # the links attached to this object.
                 
-            else:
-                raise AssertionError("this should not be possible.")
+                # (We don't add linkSET injectors here
+                # because stubs already have them)
+                self._addLinksAndStubs(obj, othercols)
 
-           
+
+        else:
+        
+            # in here we're dealing with a brand new object
+            obj = klass(**attrs)
+            self.cache.store(obj)
+            self._addLinksAndStubs(obj, othercols)
+            self._addLinkSetInjectors(obj)
             obj.private.isDirty = False
-
-            return obj
+                
+        return obj
 
 
 
@@ -226,21 +224,25 @@ class Clerk(object):
             for lnkObj, ref in _linksAndValues(obj):
                 vals[self.schema.columnForLink(lnkObj)]=ref.ID
             klass = obj.__class__
-            data_from_db = self.storage.store(self.schema.tableForClass(klass), **vals)
+            data_from_db = self.storage.store(
+                self.schema.tableForClass(klass), **vals)
 
-            # update object w/db-generated values (e.g., autonumbers or timestamps)
+            # update object w/db-generated values
+            #(e.g., autonumbers or timestamps)
             obj.update(**self._writable_columns(klass, data_from_db))
 
             # since update marks the object dirty, undo that:
             obj.private.isDirty = False
 
-            # and since this may be the first time we're seeing this object
-            # (i.e., it may be the initial save of new data), stick it in the cache:
+            # and since this may be the first time we're seeing this
+            # object (i.e., it may be the initial save of new data),
+            # stick it in the cache:
             self.cache.store(obj)
 
         else:
-            pass # object hasn't changed since we loaded it, so don't bother saving
-
+            # object hasn't changed since we loaded it, so don't bother saving
+            pass
+                    
 
     def _writable_and_other_columns(self, klass, rec):
         """
@@ -274,19 +276,23 @@ class Clerk(object):
 
     def cacheAll(self, klass, index=[]):
         """
-        Acts like .match(klass) but also allows indexing by a table.
+        Acts like .match(klass) but also allows indexing the cache by columns.
         """
         if index:
             matches = self.match(klass)
-
+            
             # cache the matches
             sci = self.cache.index
             for column in index:
                 sci.setdefault(klass, {}).setdefault(column, {})
+
                 
             for item in matches:
                 for column in index:
-                    thing = getattr(item,column)
+                    # use item.private here so we don't trigger
+                    # another query if the table is self-referential
+                    # (because we might be loading a 
+                    thing = getattr(item.private,column)
                     if hasattr(thing, "ID"): thing = thing.ID
                     sci[klass][column].setdefault(thing,[])
                     sci[klass][column][thing].append(item)
@@ -319,7 +325,7 @@ class Clerk(object):
 
     def match(self, klass, *args, **kwargs):
         """
-        Returns a row of matched objects.
+        Returns a list of matched objects.
         """
         if (klass in self.cache.allCached) and (not args):
             # @TODO: real where clauses for live objects
@@ -332,8 +338,8 @@ class Clerk(object):
                 if keepThisOne: matches.append(item)
         else:
             matches = [self._rowToInstance(row, klass)
-                       for row in self.storage.match(self.schema.tableForClass(klass),
-                                                     *args, **kwargs)]
+                       for row in self.storage.match(
+                          self.schema.tableForClass(klass), *args, **kwargs)]
         if not (args or kwargs):
             self.cache.markCached(klass)
         return matches
@@ -431,27 +437,39 @@ class LinkInjector:
         else:
             stub.removeInjector(self.inject)
 
-            old = stub.private
+            # The stub might not be a stub anymore!
+            # A clerk.match() call might have filled it in.
+            # So, check to make sure before we do anything.
+            if hasattr(stub.private, 'isStub'):
+                
+                pri = stub.private
 
-            raw = self.clerk.storage.fetch(
-                self.clerk.schema.tableForClass(self.fclass),
-                self.fID)
+                # can't use the clerk directly here because 
+                # fetch would just return the cached box! :)
+                raw = self.clerk.storage.fetch(
+                    self.clerk.schema.tableForClass(self.fclass),
+                    self.fID)
 
-            # inject the data:
-            for slot in stub.listWritableSlots():
-                if slot in raw:
-                    setattr(old, slot, raw[slot])
+                # inject the data:
+                for slot in stub.listWritableSlots():
+                    if slot in raw:
+                        setattr(pri, slot, raw[slot])
 
 
-            attrs, othercols = self.clerk._writable_and_other_columns(self.fclass, raw)
-            self.clerk._addLinksAndStubs(stub, othercols)
+                # now add the stubs to this object.
+                attrs, othercols = self.clerk._writable_and_other_columns(
+                    self.fclass, raw)
+                self.clerk._addLinksAndStubs(stub, othercols)
 
-            
-            old.isDirty = False
 
-            # since we might have observers, we'll
-            # let them know:
-            stub.notifyObservers("inject", "inject")
+                pri.isDirty = False
+
+                # and, of course, we're not a stub anymore.
+                del pri.isStub
+
+                # finally, since we might have observers, we'll
+                # let them know:
+                stub.notifyObservers("inject", "inject")
 
 
 
@@ -580,4 +598,3 @@ class Schema(object):
 ##                   % (klass.__name__, name)
 
 
-        
