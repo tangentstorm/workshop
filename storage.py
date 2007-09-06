@@ -7,10 +7,9 @@ import operator
 import warnings
 from sets import Set
 from pytypes import Date
+import sqlite3 as sqlite
 
 # * optinal dependencies
-try: import sqlite
-except ImportError: sqlite = None
 
 try:
     import MySQLdb
@@ -47,6 +46,7 @@ class QueryExpression(object):
         right = self.operation == "endswith" and "%%%s" % right or right
         op = self.OPS.get(self.operation, self.operation)
         return format % (self.left, op, str(right))
+
 # * QueryBuilder
 # ** test
 class QueryBuilderTest(unittest.TestCase):
@@ -147,12 +147,12 @@ class Storage(object):
 
     def _update(self, table, **row):
         raise NotImplementedError
-# * MockStorage
+# * RamStorage
 # ** test
-class MockStorageTest(unittest.TestCase):
+class RamStorageTest(unittest.TestCase):
 
     def setUp(self):
-        self.s = MockStorage()
+        self.s = RamStorage()
 
     def test_store_insert(self):
         row = self.s.store("test_person", name="fred")
@@ -271,7 +271,7 @@ class MockStorageTest(unittest.TestCase):
     def test_delete_with_str_id(self):
         self._test_delete(str)        
 # ** code
-class MockStorage(Storage):
+class RamStorage(Storage):
     OPS = {
         "="   : "__eq__",
         ">"   : "__gt__",
@@ -346,7 +346,8 @@ class MockStorage(Storage):
         if orderBy is not None:
             # parse orderBy
             # break columns into a list of tuples, containing field name and sort direction
-            setcol = lambda x: x.lower().endswith(' desc') and (x.split()[0], 'desc') or (x.strip(), 'asc')
+            setcol = lambda x: ((x.split()[0], 'desc') if x.lower().endswith(' desc')
+                                else (x.strip(), 'asc'))
             cols = [setcol(c) for c in orderBy.split(',')]
 
             # invert() takes n and returns its opposite (invert(15) == -15)
@@ -393,6 +394,11 @@ class MockStorage(Storage):
         return [rows.remove(row) for row
                 in rows
                 if self._dictmatch(where, row)]
+
+
+
+# old name for this class:
+MockStorage = RamStorage
 
     
 # * MySQLStorage
@@ -444,7 +450,7 @@ class MySQLStorageTest(unittest.TestCase):
                                   {"ID":2, "name":"wanda"}]        
         
 
-    # other test are inherited from MockStorage...
+    # other test are inherited from RamStorage...
 # ** code
 class MySQLStorage(Storage):
     #qb = SQLQueryBuilder
@@ -529,6 +535,7 @@ class MySQLStorage(Storage):
             sql.append(" WHERE %s" % str(where))
         if orderBy is not None:
             sql.append(" ORDER BY %s" % orderBy)
+#        sql.append(" LIMIT 1000")
         sql = ''.join(sql)
         self._execute(sql)
         return self._dictify(self.cur)
@@ -543,6 +550,7 @@ class MySQLStorage(Storage):
 
 
     def _execute(self, sql):
+        
         self.maxAttempts = 3
         attempt = 0
         if MySQLdb:
@@ -569,7 +577,7 @@ class MySQLStorage(Storage):
 # * PySQLiteStorage
 # ** test
 
-class PySQLiteStorageTest(MockStorageTest):
+class PySQLiteStorageTest(RamStorageTest):
 
     def setUp(self):
         dbc = sqlite.connect(":memory:")
@@ -595,7 +603,7 @@ class PySQLiteStorageTest(MockStorageTest):
                                   {"ID":2, "name":"wanda"}]        
         
 
-    # other test are inherited from MockStorage...
+    # other test are inherited from RamStorage...
 # ** code
 class PySQLiteStorage(MySQLStorage):
 
