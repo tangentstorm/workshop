@@ -398,8 +398,8 @@ class BlackBox(Strict):
         # back to each other, this could create an infinite loop,
         # so we only show plain attributes.
         return "%s(%s)" % (self.__class__.__name__ ,
-                           ", ".join(["%s=%s" % (a, getattr(self, a))
-                                      for a,v in self.attributeValues()]))
+                           ", ".join(["%s=%s" % (a, repr(getattr(self, a)))
+                                      for a,v in self.attributeValues().items()]))
 
 
     def getSlots(self):

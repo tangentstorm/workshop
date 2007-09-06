@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.5
 import narrative as narr
-import unittest
+import unittest, re
 from strongbox import *
 """
 <title>strongbox: powerful data classes for python</title>
@@ -623,7 +623,6 @@ def test_listWritableSlots(test):
     test.assertEquals(["a", "b", "c"],
                       foo.listWritableSlots())
 
-
 # ** attributeValues
 """
 <p>The attributeValues() method returns a dict.</p>
@@ -639,6 +638,26 @@ def test_attributeValues(test):
 
     v = Valuable(a="asdf", b=5)
     test.assertEquals({"a":"asdf", "b":5}, v.attributeValues())
+
+
+# ** repr()
+@narr.testcase
+def test_repr(test):
+    class Other(StrongBox):
+        x = attr(int)
+    class Valuable(StrongBox):
+        a = attr(str)
+        b = attr(int)
+        c = link(Other)
+
+    v = Valuable(a="asdf", b=5)
+    r = repr(v)
+
+    assert r.startswith("Valuable(")
+    assert r.count("a='asdf'")
+    assert not r.count("c=")
+    assert r.endswith(")")
+    
     
 # * Observable
 """
