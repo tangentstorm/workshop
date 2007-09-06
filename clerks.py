@@ -59,6 +59,10 @@ class Cache(object):
         except KeyError:
             return None
 
+    def delete(self, klass, key):
+        if self.get(klass, key):
+            del self.data[klass][key]
+
     def store(self, obj):
         if hasattr(obj, "ID"):
             self[(obj.__class__, obj.ID)]=obj
@@ -308,8 +312,8 @@ class Clerk(object):
         """
         Delete the instance of klass with the given ID
         """
-        #@TODO: this needs to remove it from the cache!
         self.storage.delete(self.schema.tableForClass(klass), ID)
+        self.cache.delete(klass, ID)
         return None
 
 
