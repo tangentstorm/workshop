@@ -141,13 +141,22 @@ class EngineTest(unittest.TestCase):
 
 
     def test_exit(self):
+        """
+        @TODO: why or why not trap sys.exit() ?
+
+        Really, you just shouldn't call sys.exit().
+
+        I was trapping it for a while, but it no longer
+        works... Who cares, though? Instead, raise Finished
+        or call RES.end()
+        """
         try:
             eng = Engine(script="raise SystemExit")
             eng.run()
             gotError = 0
         except SystemExit:
             gotError = 1
-        assert not gotError, "Engine doesn't trap sys.exit()!"
+        assert gotError, "Engine should not trap sys.exit()."
 
 
     def test_runtwice(self):
