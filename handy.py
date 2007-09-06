@@ -14,8 +14,10 @@ import sys
 import tempfile
 import urllib
 
-def debug():
-    import rpdb2; rpdb2.start_embedded_debugger("abc123", fAllowUnencrypted=True, fRemote=True)
+def debug(password='abc123'):
+    import rpdb2
+    rpdb2.start_embedded_debugger(
+        password, fAllowUnencrypted=True, fAllowRemote=True)
     
 # * switch
 """
