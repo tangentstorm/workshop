@@ -403,7 +403,7 @@ MockStorage = RamStorage
     
 # * MySQLStorage
 # ** test
-class MySQLStorageTest(unittest.TestCase):
+class MySQLStorageTest(RamStorageTest):
     """
     To run this test, you need to create a test database
     and then define a module that connects to it. It should
@@ -411,7 +411,8 @@ class MySQLStorageTest(unittest.TestCase):
 
     # sqlTest.py
     import MySQLdb
-    dbc = MySQLdb.connect(
+    def connect():
+        return MySQLdb.connect(
               user='test',
               passwd='whatever',
               host='localhost',
@@ -425,11 +426,11 @@ class MySQLStorageTest(unittest.TestCase):
             warnings.warn("skipping MySQL tests: no sqlTest module")
             self.skip = True
             return
-        self.s = MySQLStorage(sqlTest.dbc)
-        cur = sqlTest.dbc.cursor()
+        dbc = sqlTest.connect()
+        self.s = MySQLStorage(dbc)
+        cur = dbc.cursor()
         try:
-            cur.execute("DELETE FROM test_person")
-        except:
+            cur.execute("DROP TABLE test_person")
             cur.execute(
                 """
                 CREATE TABLE test_person (
@@ -437,6 +438,9 @@ class MySQLStorageTest(unittest.TestCase):
                     name varchar(32)
                 )
                 """)
+        except:
+            pass
+
             
     # @TODO: test for Sets
 
