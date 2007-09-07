@@ -439,6 +439,30 @@ def test_custom_getter(test):
     assert f.counter == 1
     
 
+"""
+You can even have virtual members that aren't actually
+stored, for example:
+"""
+
+import crypt
+@narr.testcase
+def test_setter(test):
+    class User(Strongbox):
+        cryptpwd = attr(str, default='')
+
+        def set_password(self, value):
+            self.cryptpwd = crypt.crypt(value, 'salt')
+
+        def get_password(self):
+            raise AttributeError, "User.password is read only!"
+
+    u = User()
+    assert u.cryptpwd == ''
+    u.password = 'whatever'
+    assert u.cryptpwd == 'saYgjMavvoiII'
+
+
+
 # * Defining Relationships Between Data Classes
 # ** <code>link</code>
 # **** 

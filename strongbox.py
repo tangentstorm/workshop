@@ -311,6 +311,12 @@ class MetaBox(type):
             klass.dict[slot].__name__ = slot
 
     def addAccessors(klass):
+        """
+        This handles get_xxx and set_xxx methods for
+        all members that are already defined as attributes.
+        If these methods are not defined, they are
+        created on the fly.
+        """
         for slot in klass.attrs:
 
             getter = klass.dict.get("get_%s" % slot)
@@ -324,13 +330,27 @@ class MetaBox(type):
                                   setter or prop.wrapSetter)
 
     def addCalculatedFields(klass):
-        # traditional properties
-        # @TODO: we don't handle setters yet
+        """
+        This handles get_xxx and set_xxx methods for
+        members that have *not* been previously defined
+        as attributes, allowing you to create virtual
+        or calculated members.
+        """
+        getter = {}
+        setter = {}
+        
         for name in klass.dict:            
-            if name.startswith("get_"):
+            if name.startswith("get_") or name.startswith("set_"):
                 slot = name[4:]
                 if slot not in klass.attrs:
-                    setattr(klass, slot, property(klass.dict[name]))
+                    if name.startswith("get_"):
+                        getter[slot] = klass.dict[name]
+                    elif name.startswith("set_"):
+                        setter[slot] = klass.dict[name]
+
+        from sets import Set
+        for key in Set(getter.keys() + setter.keys()):
+            setattr(klass, key, property(getter.get(key), setter.get(key)))
                     
 
 
