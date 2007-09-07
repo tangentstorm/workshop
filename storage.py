@@ -431,6 +431,8 @@ class MySQLStorageTest(RamStorageTest):
         cur = dbc.cursor()
         try:
             cur.execute("DROP TABLE test_person")
+        except: pass
+        try:
             cur.execute(
                 """
                 CREATE TABLE test_person (
