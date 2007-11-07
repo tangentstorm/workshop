@@ -476,9 +476,9 @@ class LinkInjector:
                 # and, of course, we're not a stub anymore.
                 del pri.isStub
 
-            # finally, if this injection was triggered by onSet, re-set the value:
-            if value is not Unspecified:
-                setattr(stub, name, value)
+                # finally, if this injection was triggered by onSet, re-set the value:
+                if value is not Unspecified:
+                    setattr(pri, name, value)
 
 
 
