@@ -1351,7 +1351,8 @@ def dirty_stub_regression(self):
     """
     class Other(Strongbox):
         ID = attr(long)
-        name = attr(str)
+        fname = attr(str)
+        lname = attr(str)
         things = linkset((lambda: Thing), "other")
         
     class Thing(Strongbox):
@@ -1363,7 +1364,7 @@ def dirty_stub_regression(self):
     store = RamStorage()
     
     clerkA = Clerk(store, dbMap)
-    top = Other(name="top")
+    top = Other(fname="wanda", lname="tempy")
     top.things << Thing(data="abc")
     clerkA.store(top)
     del clerkA
@@ -1374,9 +1375,13 @@ def dirty_stub_regression(self):
     assert other.private.isStub
     assert not other.private.isDirty
 
-    other.name = "fred"
+    other.fname = "fred"
     assert other.private.isDirty
     assert not hasattr(other.private, "isStub"), "uh-oh. a dirty stub!"
+
+    # and of course we still want the change to go through!
+    assert other.lname == "tempy"
+    assert other.fname == "fred"
     
 
 # * unit test runner

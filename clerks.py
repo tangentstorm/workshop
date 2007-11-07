@@ -476,10 +476,9 @@ class LinkInjector:
                 # and, of course, we're not a stub anymore.
                 del pri.isStub
 
-                # finally, since we might have observers, we'll
-                # let them know:
-                #stub.notifyObservers("inject", "inject")
-
+            # finally, if this injection was triggered by onSet, re-set the value:
+            if value is not Unspecified:
+                setattr(stub, name, value)
 
 
 
