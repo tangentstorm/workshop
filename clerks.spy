@@ -1334,6 +1334,50 @@ def complex_recursion_regression_test(self):
 
 
 
+@testcase
+def dirty_stub_regression(self):
+    """
+    Here's a situation where we have a stub in memory
+    and we're modifying the stub.
+
+    That should be fine, except at one point, writing to
+    the stub didn't fill in the stub first. It should!
+    
+    You want to fetch the old data, THEN merge in the new data,
+    so you can save the entire record to the database.
+
+    Problem was that we weren't firing off injectors for
+    strongbox.onSet()
+    """
+    class Other(Strongbox):
+        ID = attr(long)
+        name = attr(str)
+        things = linkset((lambda: Thing), "other")
+        
+    class Thing(Strongbox):
+        ID = attr(long)
+        other = link(Other)
+        data = attr(str)
+        
+    dbMap = Schema({ Thing: "thing", Other:"other", Thing.other:"otherID"})
+    store = RamStorage()
+    
+    clerkA = Clerk(store, dbMap)
+    top = Other(name="top")
+    top.things << Thing(data="abc")
+    clerkA.store(top)
+    del clerkA
+
+    clerkB = Clerk(store, dbMap)
+    thing = clerkB.fetch(Thing, 1)
+    other = thing.other
+    assert other.private.isStub
+    assert not other.private.isDirty
+
+    other.name = "fred"
+    assert other.private.isDirty
+    assert not hasattr(other.private, "isStub"), "uh-oh. a dirty stub!"
+    
 
 # * unit test runner
 

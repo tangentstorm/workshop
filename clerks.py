@@ -102,6 +102,7 @@ class Clerk(object):
             #@TODO: there can just be one LSI instance per linkset attribute
             #(since it no longer keeps its own reference to the object)
             obj.addInjector(LinkSetInjector(name, self, ls, column).inject)
+            obj.addObserver(LinkSetInjector(name, self, ls, column).inject)
 
 
     def _makeStub(self, klass, ID):
@@ -110,6 +111,7 @@ class Clerk(object):
         stub.private.isStub = True
         if klass not in self.cache.caching:
             stub.addInjector(LinkInjector(self, klass, ID).inject)
+            stub.addObserver(LinkInjector(self, klass, ID).inject)
         else:
             pass # no point adding injectors if we're loading the whole table
         self._addLinkSetInjectors(stub)
@@ -423,7 +425,7 @@ class LinkInjector:
         self.fID = fID
         self.fclass = fclass
 
-    def inject(self, stub, name):
+    def inject(self, stub, name, value=Unspecified):
         """
         This injects data into the stub.
 
@@ -442,6 +444,7 @@ class LinkInjector:
             pass
         else:
             stub.removeInjector(self.inject)
+            stub.removeObserver(self.inject)
 
             # The stub might not be a stub anymore!
             # A clerk.match() call might have filled it in.
@@ -475,7 +478,7 @@ class LinkInjector:
 
                 # finally, since we might have observers, we'll
                 # let them know:
-                stub.notifyObservers("inject", "inject")
+                #stub.notifyObservers("inject", "inject")
 
 
 
@@ -494,13 +497,14 @@ class LinkSetInjector:
         self.fkey = fkey
         self.linksetAttr = linksetAttr
 
-    def inject(self, box, name):
+    def inject(self, box, name, value=Unspecified):
         """
         box: the Strongbox instance we're being called from
         name: the attribute name that was getattr'd
         """
         if name == self.name:
             box.removeInjector(self.inject)
+            box.removeObserver(self.inject)
 
             # here we're using the class attribute
             childType = self.linksetAttr.type

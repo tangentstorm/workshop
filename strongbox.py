@@ -244,7 +244,8 @@ class Observable(Strict):
         self.private.observers.append(callback)
 
     def removeObserver(self, callback):
-        self.private.observers.remove(callback)
+        if callback in self.private.observers:
+            self.private.observers.remove(callback)
         
     def notifyObservers(self, slot, value):
         for callback in self.private.observers:
@@ -269,7 +270,8 @@ class Injectable(Strict):
         self.private.injectors.append(callback)
 
     def removeInjector(self, callback):
-        self.private.injectors.remove(callback)
+        if callback in self.private.injectors:
+            self.private.injectors.remove(callback)
 
     def notifyInjectors(self, slot):
         for callback in self.private.injectors:
@@ -277,7 +279,6 @@ class Injectable(Strict):
 
     def onGet(self, slot):
         self.notifyInjectors(slot)
-        
     
 
 class MetaBox(type):
