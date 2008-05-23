@@ -139,6 +139,22 @@ class Storage(object):
                                  [where(k)==simple[k] for k in simple])
         return self._match(table, whereClause, orderBy)
 
+    # @TODO: this came unchanged from Clerk. Can Clerk subclass Storage??
+    def matchOne(self, klass, *arg, **kw):
+        """
+        Like match, but ensures the query matches exactly one object.
+        Throws a LookupError if 0 or more than one object matches.
+        """
+        res = self.match(klass, *arg, **kw)
+        if len(res)==0:
+            raise LookupError("matchOne(%s, *%s, **%s) didn't match anything!"
+                              % (klass, arg, kw))
+        elif len(res)>1:
+            raise LookupError("matchOne(%s, *%s, **%s) matched %s objects!"
+                              % (klass, arg, kw, len(res)))
+        return res[0]
+
+
     def _match(self, table, where, orderBy=None):          
         raise NotImplementedError
     
@@ -566,6 +582,7 @@ class MySQLStorage(Storage):
             
         while attempt < self.maxAttempts:
             try:
+                #print sql
                 self.cur.execute(sql)
                 break
             except theException, e:
@@ -617,7 +634,7 @@ class PySQLiteStorage(MySQLStorage):
         return self.cur.lastrowid
     def _execute(self, sql):
         super(PySQLiteStorage, self)._execute(sql)
-        #self.cur.con.commit()
+        self.dbc.commit()
 
     def _insert_main(self, table, **row):
         id = super(PySQLiteStorage, self)._insert_main(table, **row)
