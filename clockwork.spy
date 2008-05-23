@@ -140,7 +140,7 @@ it repeatedly.
 class CommandTest(unittest.TestCase):
     def test(self):
         w = Worker()
-        echo = Command(["/bin/echo", "cat"])
+        echo = Command(["echo", "cat"]) # will work on any major OS
         w.assign(echo())
         w.work()
         self.assertEquals("cat\n", echo.stdout.read())
@@ -188,7 +188,7 @@ nesting inside a wsgi generator.
 The flatten() routine does this for us.
 """
 @testcase
-def flatten_test(test):
+def FlattenTest(self):
 
     def top():
         yield 1
@@ -198,10 +198,10 @@ def flatten_test(test):
     def kid():
         yield 2
 
-    test.assertEquals([1,2,3], list(flatten(top())))
+    self.assertEquals([1,2,3], list(flatten(top())))
 
 
-# * passing parameters : encapusalation
+# * standalone generators
 """
 You may need multiple, parameterized instances
 of a generator stack to behave like normal
@@ -212,28 +212,28 @@ rather than the actual generator object
 because it needs to pass in the http_start
 and environ parameters for each instance.
 
-You can use the @clockwork.encapsulate
+You can use the @clockwork.standalone
 feature to make this happen.
 """
 @testcase
-def encapsulation(test):
+def StandaloneTest(self):
 
     def repeat(num):
         for n in range(num):
             yield num
 
-    @encapsulate
+    @standalone
     def gen(*args):
         for a in reversed(args):
             yield repeat(a)
 
-    test.assertEquals([3,3,3,2,2,1], list(gen(1,2,3)))
+    self.assertEquals([3,3,3,2,2,1], list(gen(1,2,3)))
 
 
 # * return values
 class ReturnTest(unittest.TestCase):
     """
-    @TODO: what if we want a single async return value?
+    What if we want a single async return value?
     For example, we might want to do an expensive task
     out of process, wait for it to finish, and return
     the result, but never block. So we want:
@@ -253,31 +253,71 @@ class ReturnTest(unittest.TestCase):
         self.assertEquals('', wrap(async(0)))
         self.assertEquals('x', wrap(async(1)))
         self.assertEquals('xxx', wrap(async(3)))
-    
-# * old 'result' concept
-"""
-As of python2.4, there's no easy way to pass a
-value back into a running generator. We could
-probably cook up some evil trickery to pass
-values around on the generator stack, but since
-this problem is likely to go away in python2.5,
-we'll just use the simple trick of passing in
-a result variable. 
 
-Later, once it's implemented, we'll use use
-the new expression form of 'yield':
+# * yielding values
+@testcase
+def ValueTest(self):
+    """
+    We may also want to emulate the normal yield statement
+    and yield multiple values. So we need a wrapper that
+    tells clockwork to let those values escape.
 
-http://www.python.org/peps/pep-0342.html
+    Note that we have to use 'genwrap' rather than 'wrap'
+    because wrap behaves like a function.
+    """
+    def values(x):
+        yield Value(x+1)
+        yield Control
+        yield Value(x+2)
+        yield Value(x+3)
 
-"""
-class ResultTest(unittest.TestCase):
-    def test(self):
-        ret = Result()
-        ret(5)
-        assert ~ret == 5
-        ret((1,2,3))
-        assert ~ret == (1,2,3)
+    self.assertEquals([11, 12, 13],
+                      list(genwrap(values(10))))
 
+        
+# * inter-task communication using Value and send()
+@testcase
+def ValueTest(self):
+
+    def hello():
+        name = yield Value("what is your name?")
+        yield Control # just to show it's clockwork
+        yield Value("hello, %s" % name)
+
+    w = genwrap(hello())
+    self.assertEquals(w.next(), "what is your name?")
+    self.assertEquals(w.send('fred'), "hello, fred")
+
+
+# * real input/output with Input and Output
+@testcase
+def InputOutputTest(self):
+    """
+    This test is almost exactly the same as above except
+    it uses Input/Output objects.
+
+    These work similarly at the top level:
+    """
+    def interactive():
+        name = yield Input("what is your name?", str)
+        yield Control # just to show it's clockwork
+        yield Output("hello, %s" % name)
+
+    w = genwrap(interactive())
+    i = w.next(); assert isinstance(i, Input)
+    i.send("Mr. Jones")
+    self.assertEquals(w.next(), Output("hello, Mr. Jones"))
+
+    """
+    but also work from deep within a call stack:
+    """ 
+    def nested():
+        yield interactive()
+        
+    w = genwrap(nested())
+    i = w.next(); assert isinstance(i, Input)
+    i.send("Mr. Smith")
+    self.assertEquals(w.next(), Output("hello, Mr. Smith"))
 
 
 
@@ -288,13 +328,12 @@ when i need to do this, i just leave the http
 request to a child process. 
 """
 
-# * appendix: competitors
+# * appendix: competitors/related modules
 """
   twisted (yuck)
   http://lgt.berlios.de/#nanothreads
   http://www.python.org/peps/pep-0342.html
 """
-
 
 
 # * self tests
