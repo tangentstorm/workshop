@@ -220,7 +220,8 @@ def StandaloneTest(self):
 
     def repeat(num):
         for n in range(num):
-            yield num
+            yield None  # get filtered out because it's not in a Value()
+            yield Value(num)
 
     @standalone
     def gen(*args):
@@ -318,7 +319,6 @@ def InputOutputTest(self):
     i = w.next(); assert isinstance(i, Input)
     i.send("Mr. Smith")
     self.assertEquals(w.next(), Output("hello, Mr. Smith"))
-
 
 
 # * @TODO: async sockets

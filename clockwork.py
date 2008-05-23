@@ -235,10 +235,10 @@ def flatten(task):
 def standalone(genfunc):
     """
     Decorator function. Wraps the
-    function with clockwork.flatten.
+    function with clockwork.genwrap
     """
     def wrapped(*args, **kw):
-        return flatten(genfunc(*args, **kw))
+        return genwrap(genfunc(*args, **kw))
     return wrapped
 
 
