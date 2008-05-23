@@ -17,11 +17,20 @@ class Cursor(object):
             self.position = self.view.indexPrevious(self.position)
         except LookupError:
             pass
+        
     def moveDown(self):
         try:
             self.position = self.view.indexNext(self.position)
         except LookupError:
             pass
+
+
+    # or if you prefer a non-spatial metaphor:
+    def moveNext(self): self.moveDown()
+    def movePrevious(self): self.moveUp()
+    def moveToStart(self): self.moveToTop()
+    def moveToEnd(self): self.moveToBottom()
+        
 
     def value(self):
         return self.view[self.position]
