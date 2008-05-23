@@ -256,7 +256,7 @@ class ReturnTest(unittest.TestCase):
 
 # * yielding values
 @testcase
-def ValueTest(self):
+def YieldValuesTest(self):
     """
     We may also want to emulate the normal yield statement
     and yield multiple values. So we need a wrapper that
@@ -277,7 +277,7 @@ def ValueTest(self):
         
 # * inter-task communication using Value and send()
 @testcase
-def ValueTest(self):
+def ValueAndSendTest(self):
 
     def hello():
         name = yield Value("what is your name?")
