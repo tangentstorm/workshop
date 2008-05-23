@@ -233,3 +233,11 @@ def htmlEncode(s):
                 res = res + ch
     return res
         
+
+def take(howMany, series):
+    count = 0
+    for thing in series:
+        yield thing
+        count += 1
+        print count
+        if count >= howMany: break
