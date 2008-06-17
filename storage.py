@@ -10,6 +10,8 @@ from pytypes import Date
 import sqlite3 as sqlite
 
 # * optinal dependencies
+try: import sqlite3 as sqlite
+except ImportError: sqlite = None
 
 try:
     import MySQLdb
@@ -41,11 +43,11 @@ class QueryExpression(object):
         return QueryExpression(self, other, '|')
 
     def __str__(self):
-        format = isinstance(self.right, QueryExpression) and '(%s %s %s)' or "(%s %s '%s')" 
-        right = self.operation == "startswith" and "%s%%" % self.right or self.right
-        right = self.operation == "endswith" and "%%%s" % right or right
+        format = isinstance(self.right, QueryExpression) and u'(%s %s %s)' or u"(%s %s '%s')" 
+        right = self.operation == "startswith" and u"%s%%" % self.right or self.right
+        right = self.operation == "endswith" and u"%%%s" % right or right
         op = self.OPS.get(self.operation, self.operation)
-        return format % (self.left, op, str(right))
+        return format % (self.left, op, right)
 
 # * QueryBuilder
 # ** test
@@ -172,13 +174,19 @@ class RamStorageTest(unittest.TestCase):
 
     def test_store_insert(self):
         row = self.s.store("test_person", name="fred")
-        assert row == {"ID":1, "name":"fred"}
+        self.assertEquals(row, {"ID":1, "name":"fred"})
 
         row = self.s.store("test_person", name="wanda")
         assert row == {"ID":2, "name":"wanda"}
 
         assert self.wholedb()==[{"ID":1, "name":"fred"},
                                 {"ID":2, "name":"wanda"}]
+
+
+    def test_unicode(self):
+        row = self.s.store("test_person", name= u"b\xe9zier")
+        self.assertEquals(row, {"ID":1,  "name":u"b\xe9zier"})
+        assert self.wholedb()==[{"ID":1, "name":u"b\xe9zier"},]
 
     def test_store_insertExtra(self):
         self.test_store_insert()
@@ -223,7 +231,8 @@ class RamStorageTest(unittest.TestCase):
 
     def test_querybuilder_sorting(self):
         self.test_store_insertExtra()
-        assert [p['name'] for p in self.s.match("test_person", orderBy='name')] == ['bob', 'fred', 'jack', 'rick', 'wanda']
+        assert [p['name'] for p in self.s.match("test_person", orderBy='name')
+                ] == ['bob', 'fred', 'jack', 'rick', 'wanda']
 
     def populate(self):
         self.test_store_insert()
@@ -475,8 +484,6 @@ class MySQLStorageTest(RamStorageTest):
     # other test are inherited from RamStorage...
 # ** code
 class MySQLStorage(Storage):
-    #qb = SQLQueryBuilder
-    #q = SQLQueryBuilder()
 
     def __init__(self, dbc):
         self.dbc = dbc
@@ -506,7 +513,7 @@ class MySQLStorage(Storage):
         elif val is None:
             return "NULL"
         else:
-            return "'" + "''".join(str(val).split("'")) + "'"
+            return "'" + "''".join(unicode(val).split("'")) + "'"
             
 
     def _insert_main(self, table, **row):
@@ -554,7 +561,7 @@ class MySQLStorage(Storage):
     def _match(self, table, where=None, orderBy=None):
         sql = ["SELECT * FROM %s" % table]
         if where is not None:
-            sql.append(" WHERE %s" % str(where))
+            sql.append(" WHERE %s" % unicode(where))
         if orderBy is not None:
             sql.append(" ORDER BY %s" % orderBy)
 #        sql.append(" LIMIT 1000")
@@ -565,7 +572,7 @@ class MySQLStorage(Storage):
 
     def delete(self, table, where):
         if isinstance(where, QueryBuilder):
-            self._execute("DELETE FROM %s WHERE %s" % (table, str(where)))
+            self._execute("DELETE FROM %s WHERE %s" % (table, unicode(where)))
         else:
             # might be a string, int, or long
             self._execute("DELETE FROM %s WHERE ID=%s" % (table, where))

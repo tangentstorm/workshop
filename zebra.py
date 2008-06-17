@@ -1518,11 +1518,11 @@ class Bootstrap:
 
 
     def handle_var(self, model, attrs):
-        res = "zres = zres + str(scope.get('%s',''))\n" % model[0]
+        res = "zres = zres + unicode(scope.get('%s',''))\n" % model[0]
         return res
 
     def handle_xpr(self, model, attrs):
-        res = "zres = zres + str(%s)\n" \
+        res = "zres = zres + unicode(%s)\n" \
               % self.walk(model, mode="exec")
         return res
 

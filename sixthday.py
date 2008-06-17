@@ -260,7 +260,7 @@ class App(object):
         """
         write something to output..
         """
-        self.out.write(what)
+        self.out.write(what.encode("utf8"))
 
 
     ## actions ###################################################

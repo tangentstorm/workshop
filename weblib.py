@@ -458,6 +458,7 @@ class RequestDataTest(unittest.TestCase):
                "query's urldecoding not working"
     
 # ** code
+
 class RequestData(dict):
     """
     a dict-like object to represent form contents or a query string
@@ -484,6 +485,9 @@ class RequestData(dict):
                 res[k]=v
         return res
 # * RequestBuilder
+iso = "ISO-8859-1"
+import urllib
+
 class RequestBuilder(object):
     """
     should only be used for CGI and testing
@@ -495,8 +499,9 @@ class RequestBuilder(object):
             method= method or os.environ.get("REQUEST_METHOD", "GET"),
             host = host or os.environ.get("SERVER_NAME"),
             path = path or os.environ.get("PATH_INFO"),
-            query=RequestData(querystring
-                              or os.environ.get("QUERY_STRING", "")),
+            query=RequestData(querystring or
+                              urllib.unquote(os.environ.get("QUERY_STRING",'')).decode(iso).encode("utf8")
+                              ),
             form=form,
             cookie=SimpleCookie(cookie or os.environ.get("HTTP_COOKIE", "")),
             content=content or self.fetchContent(),
@@ -764,7 +769,7 @@ class Response(object):
     ## header stuff #####################################
         
     def getHeaders(self):
-        res = "Content-type: " + self.contentType + "\n"
+        res = "Content-type: " + self.contentType + "; charset=utf-8\n"
         for k,v in self.headers:
             res += "%s:%s\n" % (k,v)
         return res + "\n"
@@ -796,17 +801,17 @@ class OutputDecoratorTest(unittest.TestCase):
         
     def test_normal(self):
         out = self.wrap("print >> RES, 'hello, world!'")
-        self.assertEquals(out.getHeaders(), 'Content-type: text/html\n\n')
+        self.assertEquals(out.getHeaders(), 'Content-type: text/html; charset=utf-8\n\n')
         self.assertEquals(out.getBody(), 'hello, world!\n')
 
     def test_assert(self):
         out = self.wrap("assert 0, 'the assertion failed'")
-        self.assertEquals(out.getHeaders(), 'Content-type: text/html\n\n')
+        self.assertEquals(out.getHeaders(), 'Content-type: text/html; charset=utf-8\n\n')
         assert out.getBody().count('the assertion failed'), out.getBody()
 
     def test_except(self):
         out = self.wrap("raise hell")
-        self.assertEquals(out.getHeaders(), 'Content-type: text/html\n\n')
+        self.assertEquals(out.getHeaders(), 'Content-type: text/html; charset=utf-8\n\n')
         assert out.getBody().count('NameError'), out.getBody()
 # ** code
 class OutputDecorator(object):
@@ -821,11 +826,13 @@ class OutputDecorator(object):
         if self.eng.hadProblem():
             res = self.errHeader()
             if self.eng.result == Engine.FAILURE:
-                res += "<b>assertion failure:</b> %s" % self.eng.error
+                res += u"<b>assertion failure:</b>"
+                #res += str(self.eng.error)
+                res +=  self.errTraceback()
             elif self.eng.result == Engine.EXCEPTION:
                 res +=  self.errTraceback()
             res += self.errFooter()
-            return res
+            return res.decode("utf8")
         else:
             return self.eng.response.buffer
 
@@ -865,6 +872,8 @@ class OutputDecorator(object):
         msg += self.eng.response.getHeaders() + "\n"
         msg += self.eng.response.buffer + "\n"
         msg += hr
+
+        msg.encode("utf-8")
 
         sendmail(msg)
 
