@@ -46,7 +46,7 @@ class DictWrap:
 
 class App(object):
 
-    def __init__(self, default):
+    def __init__(self, default=None):
         # @TODO: no default actions!
         self.defaultAction = default
         self.featureSet = {}
