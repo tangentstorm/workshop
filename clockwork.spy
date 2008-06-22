@@ -1,3 +1,4 @@
+#!/bin/env python
 import unittest
 from narrative import testcase
 from clockwork import *
@@ -6,19 +7,69 @@ from clockwork import *
 # **    background
 """
 
-This is basically microthreads:
+<p>Clockwork is a sub-language embedded in python for writing
+asynchronous microthreaded programs.</p>
 
-  - define things to do as generators
-  - yield Control   to give up control
-  - or yield another generator!!
+<p>This can be used to simplify the flow of control in event driven
+environments such as GUIs, and also provides for lightweight
+concurrency without (some) of the pitfalls of traditional threads.</p>
 
-This last one means that your generators
-can spawn sub-generators.
+<p>The clockwork language is defined through extending the
+python <code>yield</code> keyword. Microthreads are simply
+normal generators that follow special conventions.</p>
 
-@TODO: allow launching threads without waiting
+<p>All non-blocking code is implemented as a generator.
+You can call any normal python function, but these functions
+block the flow of execution until they complete. For many
+cases, this is fine, but if you want to create a non-blocking
+function that returns a single value, you must implement it
+as a generator. However, python's normal <code>return</code>
+keyword is not allowed inside a generator. We could simply
+have a single <code>yield</code> statement, but this makes
+it hard to distinguish a generator that generates a sequence
+of length one (and may invoke some other side effects before
+StopIteration is raised) from a generator that 'returns' one
+item and stops execution.</p>
+
+<p>By defining a set of 'keyword objects', we can extend the
+<code>yield</code> keyword to distinguish between returning
+a value and generating a series of one item, and create a
+variety of other interesting behaviors as well.</p>
+
+<p>The keywords defined to date are:</p>
+
+<ul>
+<li><b>yield Control</b>
+    pauses execution temporarily so other microthreads can run</li>
+<li><b>yield Sub(gen)</b>
+    passes control to a sub-generator. Sub may yield Return a value.</li>
+<li><b>yield Return(...)</b>
+    returns a value like a regular python functions</li>
+<li><b>yield Value(...)</b>
+    yields a value (just like regular python generators)</li>
+<li><b>yield Input(...)</b>
+    waits for input (asynchronously) from the user.</li>
+<li><b>yield Call(gen)</b>
+    performs a <em>tail call</em> - replacing the current
+    microthread with the one in <code>gen</code></li>
+<li><b>yield CallCC(gen)</b>
+    like Call, but also sends the current continuation
+    of this microthread the first message passed to
+    the new generator (so that it can be invoked
+    later with Call, Sub, or CallCC
+    </li>
+<li>-----</li>
+<li><b>yield Each(series)</b>
+    yields each item in a series
+    same effect as <code>[(yield each) for each in series]</code> 
+    </li>
+</ul>
+
+
 
 Usage:
 
+<pre>
 w = Worker()
 w.assign(yourGenerator)
 
@@ -28,14 +79,10 @@ if in_loop:
     w.tick()
 else:
     w.work()
+</pre>
 
-You want stuff to happen almost at the same time
-but okay to just switch back and forth really fast
-if you take too long at one, then the others lock up
-so try not to do that!
 """
 
-# * -- implementation --
 # * goal: a simple queue of tasks
 """
 Our top-level object are called <strong>Workers</strong>. It's
@@ -68,7 +115,7 @@ class WorkerTest(unittest.TestCase):
         # The work will get done.
         self.assertEquals([123], x)
         
-# * goal: microtheading
+# * Pause execution with yield Control
 """
 Sometimes there's too much work to do at once so
 we break the work into small pieces. It would be
@@ -121,7 +168,7 @@ class GeneratorTest(unittest.TestCase):
         self.assertEquals(["a", 1, "z", 2, 3, 4], data)
 
         
-# * implementing generator support
+# * asynchronous generators with yield Value
 """
 The basic idea here is that generators stay in the queue until they're
 done. That means an infinite generator stays int he queue forever, or
@@ -147,7 +194,7 @@ class CommandTest(unittest.TestCase):
         self.assertEquals("", echo.stderr.read())
 
 
-# * wrap() for non-clockwork callers
+# * Call from outside clockwork wyth wrap() 
 """
 Sometimes we want to call clockwork routines from normal python code.
 
@@ -192,7 +239,7 @@ def FlattenTest(self):
 
     def top():
         yield 1
-        yield kid()
+        yield kid() #@TODO: Each
         yield 3
 
     def kid():
@@ -214,6 +261,10 @@ and environ parameters for each instance.
 
 You can use the @clockwork.standalone
 feature to make this happen.
+
+
+@TODO: that makes no sense, and this test passes even without @encapsulate
+
 """
 @testcase
 def StandaloneTest(self):
