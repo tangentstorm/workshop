@@ -462,8 +462,9 @@ def email(s):
 class EmailAddressTest(unittest.TestCase):
   
     def testIt(self):
-        assert email('sabren@manifestation.com')
-        assert email('michal.sabren@manifest-station.com')
+        assert email('name@example.com')
+        assert email('first.last@another-example.com')
+        assert email('dash-underscore_first.last+detail.ext@sub.example.com')
         assert not email('laskdjf..asdf@sadf.com')
         assert not email('asdf@@asdf.asc')
         assert not email('aslkdjf')
@@ -471,7 +472,7 @@ class EmailAddressTest(unittest.TestCase):
 
 class EmailAddress(object):
 
-    regex = r'^(\w|\d|_|-|\+)+(\.[a-zA-Z0-9_\-]+)*' \
+    regex = r'^(\w|\d|_|-|)+(\.[a-zA-Z0-9_\-\+]+)*' \
             r'@(\w|\d|_|-)+(\.[a-zA-Z0-9_\-]+)+$'
     
     def __init__(self, value):
