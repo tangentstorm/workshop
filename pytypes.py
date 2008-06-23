@@ -471,7 +471,7 @@ class EmailAddressTest(unittest.TestCase):
 
 class EmailAddress(object):
 
-    regex = r'^(\w|\d|_|-)+(\.[a-zA-Z0-9_\-]+)*' \
+    regex = r'^(\w|\d|_|-|\+)+(\.[a-zA-Z0-9_\-]+)*' \
             r'@(\w|\d|_|-)+(\.[a-zA-Z0-9_\-]+)+$'
     
     def __init__(self, value):
