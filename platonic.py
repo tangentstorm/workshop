@@ -1,4 +1,4 @@
-import inspect
+from inspect import ismethod, isfunction, getargs
 
 class Model(dict):
     
@@ -19,11 +19,33 @@ class Intercept(Exception):
          self.data = {"error":error}
 
 
-def signature(callable):
+# same as inspect.getargspec but adds support for __call__
+def getargspec(func):
+    """Get the names and default values of a function's arguments.
+
+    A tuple of four things is returned: (args, varargs, varkw, defaults).
+    'args' is a list of the argument names (it may contain nested lists).
+    'varargs' and 'varkw' are the names of the * and ** arguments or None.
+    'defaults' is an n-tuple of the default values of the last n arguments.
+    """
+    if ismethod(func):
+        func = func.im_func
+    
+    if not isfunction(func):
+        if hasattr(func, '__call__'):
+            return getargspec(func.__call__)
+        else:
+            raise TypeError('%r is not a Python function' % func)
+        
+    args, varargs, varkw = getargs(func.func_code)
+    return args, varargs, varkw, func.func_defaults
+
+
+def signature(f):
     """
     returns a list of arguments and a dict of default values
     """
-    spec = inspect.getargspec(callable)
+    spec = getargspec(f)
     need = spec[0]
     vals = spec[3]
     defaults = {}
@@ -69,7 +91,7 @@ class AbstractApp(object):
              # (could check whether it's method/bound method vs function)
             expected.remove("self")
 
-        return [first_match(arg, *dicts)
+        return [first_match(arg, *list(dicts)+[defaults])
                 for arg in expected]
 
 
