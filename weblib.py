@@ -820,11 +820,14 @@ class OutputDecorator(object):
         self.eng = eng
         
     def getHeaders(self):
-        return self.eng.response.getHeaders()
+        if self.eng.hadProblem():
+            return self.errHeaders()
+        else:
+            return self.eng.response.getHeaders()
 
     def getBody(self):
         if self.eng.hadProblem():
-            res = self.errHeader()
+            res = self.errStart()
             if self.eng.result == Engine.FAILURE:
                 res += u"<b>assertion failure:</b>"
                 #res += str(self.eng.error)
@@ -878,7 +881,7 @@ class OutputDecorator(object):
         sendmail(msg)
 
     def errTraceback(self):
-        res = '<b>uncaught exception while running %s</b><br>\n'\
+        res = '<h1>uncaught exception while running %s</h1>\n'\
               % self.eng.request.pathInfo
         res+= '<pre class="traceback">\n' \
               + htmlEncode(self.eng.error) + "</pre>\n"
@@ -889,7 +892,7 @@ class OutputDecorator(object):
         res+= '<li>cookie: %s</li>\n' % self.eng.request.cookie
         res+= '</ul>\n'
         if self.eng.globals.has_key("SESS"):
-            res+= '<b>session data:</b><br>\n'
+            res+= '<h2>session data:</h2>\n'
             res+= '<ul>\n'
             for item in self.eng.globals["SESS"].keys():
                 res+= '<li>%s: ' % item
@@ -899,14 +902,17 @@ class OutputDecorator(object):
                    res+= '(can\'t unpickle)'
                 res+= '</li>\n'
             res+= '</ul>\n'
-        res+= "<b>script output:</b>\n"
+        res+= "<h2>script output:</h2>\n"
         res+= '<pre class="output">\n' + \
               htmlEncode(self.eng.response.getHeaders()) + \
               htmlEncode(self.eng.response.buffer) + \
               "</pre>\n"
         return res
 
-    def errHeader(self):
+    def errHeaders(self):
+        return 'Status: 500 Internal Server Error\nContent-Type: text/html\n\n'
+
+    def errStart(self):
         return trim(
             '''
             <html>
@@ -929,9 +935,9 @@ class OutputDecorator(object):
     def errFooter(self):
         return trim(
             '''
-            <hr>
-            <a href="http://www.tangentcode.com/">weblib</a>
-            (c) copyright 2000-2003 
+            <hr/>
+            <a href="https://secure.sabren.com/trac/workshop/">weblib</a>
+            (c) copyright 2000-2008
             <a href="http://www.sabren.com/">Sabren Enterprises, Inc</a>. 
             All rights reserved.
             </body>
