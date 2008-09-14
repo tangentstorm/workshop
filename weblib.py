@@ -806,13 +806,24 @@ class OutputDecoratorTest(unittest.TestCase):
 
     def test_assert(self):
         out = self.wrap("assert 0, 'the assertion failed'")
-        self.assertEquals(out.getHeaders(), 'Content-type: text/html; charset=utf-8\n\n')
+        self.assertEquals(out.getHeaders(), trim(
+            '''
+            Status: 500 Internal Server Error
+            Content-Type: text/html; charset=utf-8
+            
+            '''))
         assert out.getBody().count('the assertion failed'), out.getBody()
 
     def test_except(self):
         out = self.wrap("raise hell")
-        self.assertEquals(out.getHeaders(), 'Content-type: text/html; charset=utf-8\n\n')
+        self.assertEquals(out.getHeaders(), trim(
+            '''
+            Status: 500 Internal Server Error
+            Content-Type: text/html; charset=utf-8
+
+            ''')) 
         assert out.getBody().count('NameError'), out.getBody()
+        
 # ** code
 class OutputDecorator(object):
 
@@ -910,7 +921,12 @@ class OutputDecorator(object):
         return res
 
     def errHeaders(self):
-        return 'Status: 500 Internal Server Error\nContent-Type: text/html\n\n'
+        return trim(
+            '''
+            Status: 500 Internal Server Error
+            Content-Type: text/html; charset=utf-8
+            
+            ''')
 
     def errStart(self):
         return trim(
