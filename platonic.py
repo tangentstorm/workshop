@@ -108,9 +108,9 @@ def callWithKeys(f, *dicts):
         # @TODO: work even without convention?
         # (could check whether it's method/bound method vs function)
         expected.remove("self")
-        
-    return f(*[firstMatch(arg, *list(dicts)+[defaults])
-               for arg in expected])
+
+    searchSpace = list(dicts)+[defaults]
+    return f(*[firstMatch(arg, *searchSpace) for arg in expected])
 
 
 class URI(object):
@@ -187,19 +187,13 @@ class AbstractApp(object):
         raise NotImplementedError("you must override buildFeature")
 
     def invoke(self, req, res, feature):
-        # @TODO: signature-based dispatch
-        return feature().handle(req, res)
+        return callWithKeys(feature, self.specials(), matchdict, req)
 
     def render(self, req, res, feature, content):
         res.write(content)
 
     def onIntercept(self, intercept, feature):
         raise intercept
-
-
-    def buildArgs(self, f, *dicts):
-        warnings.warn("use platonic.callWithKeys", DeprecationWarning)
-        return callWithKeys(f, *dicts)
         
     def dispatch(self, req, res):
 
