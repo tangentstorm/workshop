@@ -2,118 +2,21 @@
 storage: a module for storing tabular data
 """
 # * dependencies
-import unittest
 import operator
 import warnings
 from sets import Set
 from pytypes import Date
 import sqlite3 as sqlite
+from arlo import QueryBuilder, where
 
-# * optinal dependencies
+# optional depedencies
 try: import sqlite3 as sqlite
 except ImportError: sqlite = None
 
-try:
-    import MySQLdb
-except ImportError:
-    MySQLdb = None
+try: import MySQLdb
+except ImportError: MySQLdb = None
 
 
-# * QueryExpression
-class QueryExpression(object):
-    OPS = {
-        "&"         : "AND",
-        "|"         : "OR",
-        "startswith": "LIKE",
-        "endswith"  : "LIKE",
-    }
-    
-    def __init__(self, left, right, operation):
-        self.left = left
-        self.right = right
-        self.operation = operation
-        #@TODO: remove this!
-        self.pattern = (left, right, operation)
-
-    
-    def __and__(self, other):
-        return QueryExpression(self, other, '&')
-
-    def __or__(self, other):
-        return QueryExpression(self, other, '|')
-
-    def __str__(self):
-        format = isinstance(self.right, QueryExpression) and u'(%s %s %s)' or u"(%s %s '%s')" 
-        right = self.operation == "startswith" and u"%s%%" % self.right or self.right
-        right = self.operation == "endswith" and u"%%%s" % right or right
-        op = self.OPS.get(self.operation, self.operation)
-        return format % (self.left, op, right)
-
-# * QueryBuilder
-# ** test
-class QueryBuilderTest(unittest.TestCase):
-
-
-    def test_simple(self):
-        clause = where('a') < 5
-        assert str(clause) == "(a < '5')", clause
-
-    def test_complex(self): 
-        a = where("a") == 1
-        b = where("b") == 2
-        #import pdb; pdb.set_trace()
-        clause = a | b
-        self.assertEquals(str(clause), "((a = '1') OR (b = '2'))")
-
-    def test_like(self):
-        clause = where("name").startswith("a")
-        self.assertEquals(str(clause), "(name LIKE 'a%')")
-# ** code
-class QueryBuilder(object):
-
-    def __init__(self, name=''):
-        self._name = name
-
-    def __eq__(self, other):
-        return QueryExpression(self._name, other, '=') 
-
-    def __ne__(self, other):
-        return QueryExpression(self._name, other, '!=') 
-
-    def __lt__(self, other):
-        return QueryExpression(self._name, other, '<') 
-    
-    def __gt__(self, other):
-        return QueryExpression(self._name, other, '>')
-
-    def __ge__(self, other):
-        return QueryExpression(self._name, other, '>=')
-    
-    def __le__(self, other):
-        return QueryExpression(self._name, other, '<=')
-
-    def startswith(self, other):
-        return QueryExpression(self._name, other, 'startswith') 
-
-    def endswith(self, other):
-        return QueryExpression(self._name, other, 'endswith') 
-
-    def __str__(self):
-        return self._name
-# * where
-where = QueryBuilder
-# * Storage
-# ** test
-class StorageTest(unittest.TestCase):
-
-    def test_oldmatch(self):
-        class OldMatcher(Storage):
-            def _match(self, table, whereClause, orderBy):
-                self.clause = whereClause
-        o = OldMatcher()
-        o.match("blah", ID=5)
-        self.assertEquals( str(o.clause), "(ID = '5')")
-# ** code
 class Storage(object):
 
     def store(self, table, **row):
@@ -165,137 +68,9 @@ class Storage(object):
 
     def _update(self, table, **row):
         raise NotImplementedError
-# * RamStorage
-# ** test
-class RamStorageTest(unittest.TestCase):
-
-    def setUp(self):
-        self.s = RamStorage()
-
-    def test_store_insert(self):
-        row = self.s.store("test_person", name="fred")
-        self.assertEquals(row, {"ID":1, "name":"fred"})
-
-        row = self.s.store("test_person", name="wanda")
-        assert row == {"ID":2, "name":"wanda"}
-
-        assert self.wholedb()==[{"ID":1, "name":"fred"},
-                                {"ID":2, "name":"wanda"}]
-
-# @TODO: test unicode - especially for MySQL
-#     def test_unicode(self):
-#         row = self.s.store("test_person", name= u"b\xe9zier")
-#         self.assertEquals(row, {"ID":1,  "name":u"b\xe9zier"})
-#         assert self.wholedb()==[{"ID":1, "name":u"b\xe9zier"},]
-
-    def test_store_insertExtra(self):
-        self.test_store_insert()
-        self.s.store("test_person", name="rick")
-        self.s.store("test_person", name="bob")
-        self.s.store("test_person", name="jack")
-        assert self.wholedb()==[{"ID":1, "name":"fred"},
-                                {"ID":2, "name":"wanda"},
-                                {"ID":3, "name":"rick"},
-                                {"ID":4, "name":"bob"},
-                                {"ID":5, "name":"jack"}]
-
-
-    def test_oldmatch(self):
-        self.test_store_insertExtra()
-        match = self.s.match("test_person", where("ID")==2)
-        assert match[0]["name"] == "wanda", "new style broke"
-        match = self.s.match("test_person", ID=2)
-        assert match[0]["name"] == "wanda", "old style broke"
-
-
-    def test_querybuilder_matches(self):
-        self.test_store_insertExtra()
-        match = self.s.match("test_person", where("ID")==5 )
-        assert match[0]['name'] == 'jack'
-
-        match = self.s.match("test_person", ( ( where("name")=="fred" )
-                                         |  ( where("name")=="bob" ) ), "name")
-        self.assertEquals([u['name'] for u in match],
-                          ['bob','fred'])
-            
-        
-        
-        match = self.s.match("test_person", ((where("ID") > 1)
-                                             &(where("ID") <= 4))
-                                           |(where("name").endswith('ck')),
-                                         'name desc')
-        self.assertEquals( [u['name'] for u in match],
-                           ['wanda', 'rick', 'jack', 'bob'] )
 
 
 
-    def test_querybuilder_sorting(self):
-        self.test_store_insertExtra()
-        assert [p['name'] for p in self.s.match("test_person", orderBy='name')
-                ] == ['bob', 'fred', 'jack', 'rick', 'wanda']
-
-    def populate(self):
-        self.test_store_insert()
-
-    def wholedb(self):
-        return self.s.match("test_person")
-
-    def test_store_update(self):
-        self.populate()
-        row = self.s.fetch("test_person", 1)
-        row["name"] = "frood"
-        self.s.store("test_person", **row)
-        assert self.wholedb() == [{"ID":1, "name":"frood"},
-                                  {"ID":2, "name":"wanda"}]        
-
-    def test_store_update_longs(self):
-        # same as above but with lnogs
-        self.populate()
-        row = self.s.fetch("test_person", 1L)
-        row["name"] = "frood"
-        self.s.store("test_person", **row)
-        assert self.wholedb() == [{"ID":1, "name":"frood"},
-                                  {"ID":2, "name":"wanda"}]        
-
-    def test_store_update_strings(self):
-        # same as above but with lnogs
-        self.populate()
-        row = self.s.fetch("test_person", "1")
-        row["name"] = "frood"
-        self.s.store("test_person", **row)
-        assert self.wholedb() == [{"ID":1, "name":"frood"},
-                                  {"ID":2, "name":"wanda"}]        
-
-    def test_match(self):
-        assert self.wholedb() == []
-        self.populate()
-        results = self.s.match("test_person", where("ID") == 1)
-        assert results == [{"ID":1, "name":"fred"}], str(results)
-
-    def test_fetch(self):
-        self.test_store_insert()
-        wanda = self.s.fetch("test_person", 2)
-        assert wanda["name"]=="wanda"
-
-    def _test_delete(self, key_type):
-        self.populate()
-        self.s.delete("test_person", key_type(1))
-        people = self.s.match("test_person")
-        assert people == [{"ID":2, "name":"wanda"}]
-        self.s.delete("test_person", key_type(2))
-        people = self.s.match("test_person")
-        assert people == []
-
-
-    def test_delete_with_int_id(self):
-        self._test_delete(int)
-
-    def test_delete_with_long_id(self):
-        self._test_delete(long)
-
-    def test_delete_with_str_id(self):
-        self._test_delete(str)        
-# ** code
 class RamStorage(Storage):
     OPS = {
         "="   : "__eq__",
@@ -322,7 +97,7 @@ class RamStorage(Storage):
         return self._counter[table]
 
     def _dictmatch(self, expression, subject):
-        # RICK: uses querybuilder to match instead.
+
         (prop, val, op) = expression.pattern
         if op in ["|","&"]:
             return getattr(self._dictmatch(expression.left, subject), self.OPS[expression.operation])(self._dictmatch(expression.right, subject))
@@ -330,7 +105,7 @@ class RamStorage(Storage):
            
             # get the property value to check
             # take the value after the right-most period
-            # Omitted due to the new QueryBuilder object
+            # Omitted due to the new QueryBuilder object (arlo.where)
             #if '.' in prop: prop = prop[prop.rindex('.')+1:]
             p = subject[prop]
             # perform the operation from the pattern against the value
@@ -400,17 +175,17 @@ class RamStorage(Storage):
                   % (table, ID, len(res))
         return res[0]
 
-    def delete(self, table, w):
+    def delete(self, table, whereClause):
         self._ensuretable(table)
         rows = self._tables[table]
-        if isinstance(w, QueryBuilder):
+        if isinstance(whereClause, QueryBuilder):
             # repeat until no rows are deleted
             l = 1
             while l > 0:
-                l = len(self.__deleteMatch(w, rows))
+                l = len(self.__deleteMatch(whereClause, rows))
         else:
             for i in range(len(rows)):
-                if rows[i]["ID"]==long(w):
+                if rows[i]["ID"]==long(whereClause):
                     rows.remove(rows[i])
                     break
 
@@ -426,63 +201,6 @@ class RamStorage(Storage):
 MockStorage = RamStorage
 
     
-# * MySQLStorage
-# ** test
-class MySQLStorageTest(RamStorageTest):
-    """
-    To run this test, you need to create a test database
-    and then define a module that connects to it. It should
-    be called sqlTest.py and it should look something like this:
-
-    # sqlTest.py
-    import MySQLdb
-    def connect():
-        return MySQLdb.connect(
-              user='test',
-              passwd='whatever',
-              host='localhost',
-              db='test')
-    """
-    def setUp(self):
-        try:
-            import sqlTest
-            self.skip = False
-        except ImportError:
-            warnings.warn("skipping MySQL tests: no sqlTest module")
-            self.skip = True
-            return
-        dbc = sqlTest.connect()
-        self.s = MySQLStorage(dbc)
-        cur = dbc.cursor()
-        try:
-            cur.execute("DROP TABLE test_person")
-        except: pass
-        try:
-            cur.execute(
-                """
-                CREATE TABLE test_person (
-                    ID int not null auto_increment primary key,
-                    name varchar(32)
-                )
-                """)
-        except:
-            pass
-
-            
-    # @TODO: test for Sets
-
-    def test_store_quotes(self):
-        if self.skip : return
-        self.populate()
-        row = self.s.fetch("test_person", 1)
-        row["name"] = "j'mo\"cha's'ha''ha"
-        self.s.store("test_person", **row)
-        assert self.wholedb() == [{"ID":1, "name":"j'mo\"cha's'ha''ha"},
-                                  {"ID":2, "name":"wanda"}]        
-        
-
-    # other test are inherited from RamStorage...
-# ** code
 class MySQLStorage(Storage):
 
     def __init__(self, dbc):
@@ -499,7 +217,8 @@ class MySQLStorage(Storage):
         for row in cur.fetchall():
             d = {}
             for i in range(len(cur.description)):
-                d[cur.description[i][0]] = row[i].pop() if isinstance(row[i], Set) else row[i]
+                d[cur.description[i][0]] = (
+                    row[i].pop() if isinstance(row[i], Set) else row[i] )
             res.append(d)
         return res
 
@@ -604,34 +323,6 @@ class MySQLStorage(Storage):
                 raise Exception, str(e) + ":" + sql
 
             
-# * PySQLiteStorage
-# ** test
-
-class PySQLiteStorageTest(RamStorageTest):
-
-    def setUp(self):
-        dbc = sqlite.connect(":memory:")
-        self.s = PySQLiteStorage(dbc)
-        cur = dbc.cursor()
-        try:
-            cur.execute("DELETE FROM test_person")
-        except:
-            cur.execute(
-                """
-                CREATE TABLE test_person (
-                    ID int primary key,
-                    name varchar(32)
-                )
-                """)
-
-    def test_store_quotes(self):
-        self.populate()
-        row = self.s.fetch("test_person", 1)
-        row["name"] = "j'mo\"cha's'ha''ha"
-        self.s.store("test_person", **row)
-        assert self.wholedb() == [{"ID":1, "name":"j'mo\"cha's'ha''ha"},
-                                  {"ID":2, "name":"wanda"}]        
-        
 
     # other test are inherited from RamStorage...
 # ** code

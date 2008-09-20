@@ -15,8 +15,8 @@ __name__="runtests" # to prevent other unittests from running first
 spies = []
 for filename in os.listdir('.'):
     if filename.endswith(".spy"):
-        print "loading", filename
-        exec (open(filename).read())
+        # pass in filename so it shows up in tracebacks:
+        exec compile(open(filename).read(), filename, 'exec')
         
 import unittest
 unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout))

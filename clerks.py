@@ -4,7 +4,6 @@ clerk: an object-relational mapper
 """
 import operator
 from strongbox import *
-from storage import where
 from storage import MockStorage
 
 class _EMPTY_LINK:
