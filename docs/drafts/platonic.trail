@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="workshop.css"?>
+<trail>
+
+<title>structuring applications with platonic</title>
+
+<goal>break your app into features</goal>
+
+<p>Platonic is essentially a component framework.  The components are
+called features. There are two types of features:</p>
+
+<pre>
+<ul>
+<li>Queries return data</li>
+<li>Commands perform actions</li>
+</ul>
+<p>A feature should never do both!</p>
+</pre>
+
+
+
+
+<goal>limit input to strings</goal>
+
+<p>That's all a person can enter at the keyboard.</p>
+
+
+<goal>output conforms to standard structure</goal>
+
+<p>Output is always a view. <strong>A view is a dictionary</strong>
+where:</p>
+
+<pre>
+<ul>
+<li>keys are strings</li>
+<li>values are either strings or lists of views</li>
+</ul>
+</pre>
+
+<p>example:</p>
+
+<pre>
+view = {
+   "name": "michal",
+   "born": "1976",
+   "sites": [
+      { "url": "http://sabren.com", "content": "corporate blog" },
+      { "url": "http://withoutane.com", "content": "personal blog" },
+      { "url": "http://webappworkshop.com", "content": "python tutorials" },
+   ],
+}
+</pre>
+
+
+<goal>modular components</goal>
+
+
+</trail>

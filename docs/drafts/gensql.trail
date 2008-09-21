@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="workshop.css"?>
+<trail>
+
+
+once we have the code that generates create
+tables from a schema, then we should use this:
+
+<pre>
+def genSomeSchema(cur):
+    genSQL(cur, SOMESCHEMA)
+</pre>
+
+but that's a waste so just do this:
+
+<pre>
+lambda cur: gensql(cur, SOMESCHEMA)
+</pre>
+
+
+
+</trail>

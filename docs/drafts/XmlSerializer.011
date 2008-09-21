@@ -1,0 +1,12 @@
+= XmlSerializer =
+
+I've begun work on a python module to convert strongbox objects to xml and back.  My inspiration for this is the ease of use with the [http://msdn.microsoft.com/library/default.asp?url=/library/en-us/cpref/html/frlrfSystemXmlSerializationXmlSerializerClassTopic.asp .Net XmlSerializer class].
+
+== XmlSerializer Walkthrough ==
+ * XmlSerializerDefault
+ * XmlSerializerOrder
+
+== XmlSerializer Current Status ==
+{{{
+    pass
+}}}

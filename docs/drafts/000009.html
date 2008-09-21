@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [workshop-lite] rantelope day 005: comment system and next steps
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:michal%40sabren.com">
+   <META NAME="robots" CONTENT="index,nofollow">
+   
+   <LINK REL="Previous"  HREF="000008.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[workshop-lite] rantelope day 005: comment system and next steps
+   </H1>
+    <B>Michal Wallace
+    </B> 
+    <A HREF="mailto:michal%40sabren.com"
+       TITLE="[workshop-lite] rantelope day 005: comment system and next steps">michal@sabren.com
+       </A><BR>
+    <I>Sat, 28 Sep 2002 16:15:12 -0400 (Eastern Daylight Time)</I>
+    <P><UL>
+        <LI> Previous message: <A HREF="000008.html">[workshop-lite] rantelope, day 4: the ransacker search engine
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#9">[ date ]</a>
+              <a href="thread.html#9">[ thread ]</a>
+              <a href="subject.html#9">[ subject ]</a>
+              <a href="author.html#9">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>rantelope: day 005
+-----------------------------
+comment system and next steps
+-----------------------------
+
+Today I added comments, rounding out the core feature
+set, and began thinking about how rantelope *the application*
+will eventually work.
+
+As usual, the code and demo are up at:
+
+    <A HREF="http://www.rantelope.com/">http://www.rantelope.com/</A>
+
+You also can now get the code via anonymous CVS:
+
+ cvs -d:pserver:<A HREF="mailto:anonymous@cvs.sabren.com">anonymous@cvs.sabren.com</A>:/cvs/sixthdev co MODULE
+
+Where MODULE is python module name:
+  (rantelope, ransacker, sixthday, storage, arlo, etc.)
+
+
+==[ today's objective ]==
+
+The last feature to add was a comment system. It's
+simple, so I'm just going to jump into the 
+implementation here:
+
+==[ implementation ]==
+
+I wanted to show a page with a story, list all the
+comments underneath it, and then show a form for 
+people to add their own comments.
+
+Step by step, it went like this:
+
+1. Create a Comment class and corresponding table:
+
+     ## python ##
+     class Comment(Strongbox):
+         ID = attr(long)
+         storyID = attr(long)
+         name = attr(str)
+         mail = attr(str)
+         link = attr(str)
+         note = attr(str)
+
+     -- MySQL --
+     CREATE TABLE rnt_comment (
+         ID int not null auto_increment primary key,
+         storyID int not null,
+         name varchar(50),
+         mail varchar(50),
+         link varchar(255),
+         note text
+     );
+
+
+2. Define the relationship between Story and Comments:
+
+    class Story(Strongbox):
+        ...
+        comments = linkset(Comment)
+
+    ...
+
+    dbmap = {
+        ...
+        Story.__attrs__[&quot;comments&quot;]: (Comment, &quot;storyID&quot;),
+        Comment: &quot;rnt_comment&quot;}
+
+
+3. Add actions to RantelApp for showing stories and 
+   saving comments:
+
+    def show_story(self):
+        self.generic_show(Story, &quot;sho_story&quot;)
+
+    def save_comment(self):
+        cmt = self.generic_save(Comment)
+        self.redirect(action='show&amp;what=story&amp;ID='
+                            + str(cmt.storyID))
+
+4. Create template called sho_story.zb.
+
+   This is simple, but long. See:
+   <A HREF="http://cvs.sabren.com/sixthdev/cvsweb.cgi/rantelope/sho_story.zb?rev=1.1">http://cvs.sabren.com/sixthdev/cvsweb.cgi/rantelope/sho_story.zb?rev=1.1</A>
+
+
+Pretty simple, huh? 
+
+Of course, finding the comments page is kind of tricky, and it's not
+hooked up to the templates, and the search engine STILL isn't hooked
+up, and the whole application is just plain ugly.  Which brings me to
+my next point...
+
+==[ the future ]==
+
+Right now, rantelope is just a bundle of features. It leaves a lot of
+questions open. Is rantelope a tool users install themselves to manage
+their sites? Or should it be more like the blogger server, where
+people log in and publish their changes across the net?
+
+How should templates be shared between channels, stories, and
+comments?
+
+Do we need to implement a login feature, or can we delegate that to
+the webserver? If we do have users, how about multiple users, with
+different permissions based on the channel?
+
+When, exactly do channels get published? What about archives? How
+should the navigation be set up?
+
+What about email? Can you email a post to a blog? Can the blog notify
+subscribers of new stories?
+
+What about importing RSS? Or templates from other tools? There's no
+reason our various objects couldn't be stored directly in RSS files,
+bypassing MySQL completely.
+
+In other words, the future is wide open. A single program 
+can't do &lt;i&gt;everything&lt;/i&gt;, and that's where design comes in.
+
+I believe software design can and should be an interative process.
+A week ago, I wrote out which features would have to be there to 
+build a content management system. Then I built each one in turn.
+The result seems like an ugly mess, but it more or less works.
+
+Actually, you might say that this week, we've created 
+some technology for content management. Now we want to 
+build an *application* of that technology, that people 
+can actually use.
+
+So the next step is to figure out exactly how that application
+should interact with the world. I'll be working that out over
+the next two weeks. If you have suggestions, comments, feature
+requests, or questions, feel free to email me or post to the
+list. 
+
+Sincerely,
+
+Michal J Wallace
+Sabren Enterprises, Inc.
+-------------------------------------
+contact: <A HREF="mailto:michal@sabren.com">michal@sabren.com</A>
+hosting: <A HREF="http://www.cornerhost.com/">http://www.cornerhost.com/</A>
+my site: <A HREF="http://www.sabren.net/">http://www.sabren.net/</A>
+--------------------------------------
+
+
+</PRE>
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI> Previous message: <A HREF="000008.html">[workshop-lite] rantelope, day 4: the ransacker search engine
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#9">[ date ]</a>
+              <a href="thread.html#9">[ thread ]</a>
+              <a href="subject.html#9">[ subject ]</a>
+              <a href="author.html#9">[ author ]</a>
+         </LI>
+       </UL>
+</body></html>

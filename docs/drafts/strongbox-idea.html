@@ -1,0 +1,87 @@
+<html>
+<head>
+<title>early strongbox ideas</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: of historical interest only</em></p>
+
+<hr>
+
+<pre>
+Note to self: the stuff discussed here is very similar to Guido's example here:
+
+   http://www.python.org/2.2/descrintro.html#metaclasses
+
+Also... I was wrong.. This doesn't do strong typing, it does
+static typing. (Oh well, I'll probably still call it strongbox)
+
+Also... OOPS ( http://sourceforge.net/projects/pyobjfs/ ) has
+a similar metaclass structure and actually has it working, but
+his stuff is tightly coupled to a particular data storage layer,
+and also doesn't seem to provide getters and setters.
+
+5/21/02 - Most of the stuff below has been working for some time,
+I just haven't updated this page. You can see the source code at:
+
+   http://sixthdev.versionhost.com/viewcvs.cgi/strongbox/
+
+--MichalWallace
+
+===============
+
+I haven't had a chance to work on it at all, but I've been turning around an idea in my mind for the past couple days. I think I have a way to simplify my python data classes. The current module (zdc) works okay, but it's brittle, and tightly coupled to the database. It actually looks in the database to see what attributes a class should have, the idea being that RecordObjects were just object-oriented wrappers for whatever happened to be in their associated tables.
+
+The new scheme will be called strongbox, and it boils zdc's tangled mess of classes down to three or four main ones, plus another three for handling relationships. 
+
+I call it strongbox because it's strongly typed. Python variables are weakly typed, which means x can be a string one minute, and an integer the next. That's great most of the time, but it's a pain for working with relational databases, because the columns hold only one type of data. So my zdc applications are full of validation code that gets repeated all over the place. Data validation is one of the biggest things slowing me down when I go to write a web app.
+
+Strongbox changes everything. It starts with a <a href="http://www.python.org/doc/essays/metaclasses/">metaclass</a> called, not surprisingly, Strongbox. When you subclass Strongbox,
+you don't get a normal python class, but a Strongbox class. Strongboxes have built-in getters and setters. They also let you define strongly-typed slots like so:
+
+{{{
+from strongbox import Slot
+from strongbox import Strongbox
+from pytypes import FixedPoint
+
+class Person(Strongbox):
+    fname  = Slot(str, size=15, default="herman")
+    salary = Slot(FixedPoint)
+    favorite = Slot(str, valid=('red','blue','green'))
+    age = Slot(int, valid=lambda x: x &gt; 0)
+
+    def get_canDrink(self):
+        return self.age &gt; 21
+
+>>> fred = Person(fname='fred', age=18)
+>>> fred.canDrink
+0
+>>> fred.age = 25
+>>> fred.canDrink
+1 
+}}}
+
+The "valid" argument lets you specify rules for valid data. I plan to support regular expressions, enums, and lambdas. (If you need a full function, you can just override get_XXX).
+
+
+The "pytypes" module mentioned above is also a child of zdc... I'm taking all the datatypes defined there (Date, DateTime, IdxDict, 
+FixedPoint) and putting them into their own module.
+
+
+Another neat thing about Strongbox is the Observer pattern. Notice that in the example, fred is just a freestanding object. No database was needed. Fred doesn't know anything about databases, but he <i>can</i> be saved to one. The simplest way is to pickle him and store him in a blob or a file. (Not 100% sure pickling works with metaclasses, but we'll find out). But we can also store fred's slots in a relational database.
+
+To do that, we create a special observer called a Clerk. As Fred changes, he fires off events notifying anyone who cares to listen that something has happened. The Clerk listens to these events, and can therefore decide whether or not he needs to be saved. This means
+you don't actually have to call "save" every time something changes.
+You *can* do that if saving is expensive, but you can also just have the Clerk save fred to the database.
+
+Which database, though? It doesn't matter. Clerk doesn't know about databases either, it knows about Sources. Source is just an interface, and there will be different Sources for different types of storage systems. DBAPI2Source will map strongboxes to a database like MySQL. 
+
+
+With zdc, the object-relational mapping required all sorts of work,
+but with strongbox, it's simple. You've defined your Slots in python, so there's no need to investigate the table. Mapping classes to tables can be done with a simple python dictionary. In fact, we can even generate the SQL statements for the tables from the class definition.
+
+
+The best part of all this is that most of it is already done. I expect Strongbox to be a fraction of the size of zdc, and it should only take a day or two to implement.
+</pre>
+</body>
+</html>

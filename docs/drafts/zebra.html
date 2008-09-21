@@ -1,0 +1,80 @@
+status: looks okay...
+
+= zebra overview =
+
+Zebra is a template language based on xml. It also provides an 
+outline-based syntax that fits cleanly with python code.
+
+At first glance, zebra may seem similar to JSP, because Zebra has tags and it compiles down to python code. However:
+
+  * zebra is a general template system, not limited to the web
+  * zebra is meant to work independently of business logic (similar to the JSP "model 2" or Model-View-Controller paradigm)
+
+Zebra also shares some features of XSLT, and it may actually be used to transform hierarchical data. However:
+
+   * zebra has a much more procedural / object-oriented mentality
+   * zebra reports of python data structures, not pure xml
+   * zebra is compiled into python code
+   * zebra is scriptable through python!
+
+=== status ===
+
+Zebra has been stable since 2000 or so. The documentation is currently grossly out of date. (It contains tags that turned out to be redundant)
+
+Differences from the docs :
+
+- only python actually gets generated (no PHP, ASP, etc)
+
+- no grouping/sorting tags.. I took them out, never put them back
+  (but I miss them)
+
+- skin/ stripe/ wrap are gone (temporarily)
+- title/keywords/content/description are gone
+- tail is now foot
+- no direct access to database. Instead you report off "models"
+  which are basically lists of dictionaries. (These are easy to
+  generate from SQL queries or some XML documents, though)
+
+
+- valid tags are:
+
+        zebra - top level tag
+        rem - comments
+        for - loops through a list of dictionaries
+        none - (part of for) shows if nothing in the list of dicts
+        var - prints a variable from the current scope (skips undefined)
+        xpr - evaluate and print a (python) expression (crashes if not defined)
+        exec - include arbitrary python code
+        if - if
+        ef - else if
+        el - else
+        br - line break
+        head - (part of for) header if the list has contents
+        foot - (part of for) footer """
+        include - include another zebra file
+
+- the code is MUCH simpler - it now uses an event-driven XML
+  parser to do its work.
+
+
+- the docs don't match the code. :)
+
+However, there's a whole test directory that includes example code to
+test each function. This requires pyunit (from pyunit.sourceforge.net)
+to run the tests. Also sdunit.
+
+=== quick links ===
+
+ZebraTags
+
+old web page: http://zebra.sourceforge.net/
+sourceforge: http://sf.net/projects/zebra/
+
+=== to-do ===
+
+The following issues ought to be addressed:
+
+  * Rethink the linefeed-stripping policy. (add a "squish" tag to turn it on explicitly, perhaps?)
+  * update the documentation
+  * allow compilation to languages other than python
+  * allow compilation based on zebra templates (muahahaha)

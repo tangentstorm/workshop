@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+<title>workshop lesson 03: strongbox</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: looks up to date, but need to get
+code under test</em></p>
+
+<b>Michal Wallace</b> 
+<i>Thu, 23 May 2002 03:10:25 -0400 (Eastern Daylight Time)</i>
+
+<h1>lesson 03: strongbox</h1>
+
+<h2>In Search of a Data Model</h2>
+
+<p>Usually, when we're building a web app, we want to deal
+with more than one type of data object, and store the data
+in some sort of database.</p>
+
+<p>If that's the case, then one of our first goals is to
+figure out what sort of data objects we're going to work
+with, and how they relate.</p>
+
+<p>A good rule of thumb is that if you have a written
+description of the system you want to build, and you
+underline all the nouns, you'll wind up with a list of the
+data objects you'll need.</p>
+
+<p>For example, in the description of the control panel, I
+mentioned nouns like:</p>
+
+<ul>
+<li>machine (as in the web servers)</li>
+<li>user</li>
+<li>domain</li>
+<li>email address</li>
+<li>website </li>
+<li>account balance</li>
+<li>billing history</li>
+</ul>
+ 
+<p>
+All of these can be stored as a single record in a database,
+so this is a good starting point. <a href="#foot_1">[1]</a>
+</p>
+
+
+<h2>Fleshing it Out</h2>
+
+<p>On the other hand, this is just a skeleton of a data
+model.  Once we know what the objects are, we want to know
+what sort of data they'll contain, and how they relate to
+each other.</p>
+
+<p>Let's look at email addresses as an example.</p>
+
+<p>When a user adds a domain to her account, I configure the
+server to accept all mail for that domain. Usually, all the
+mail goes directly to her inbox. But sometimes, she wants
+her mail to go to her existing email address, or to forward
+certain <code>usernames@herdomain</code> to 
+outside addresses.</p>
+
+<p>The way I'd handle these fields is to make the catch-all
+address a property of the domain, and each forwarding
+address is an object of its own. <a href="#foot_2">[2]</a></p>
+
+<p>Here is how I might define the &quot;Domain&quot; and
+&quot;Forward&quot; data objects in python:</p>
+
+<pre>
+from strongbox import Strongbox, attr
+
+class Domain(Strongbox):
+    ID = attr(long)
+    userID = attr(long)
+    domain = attr(str)
+    mailto = attr(str)
+
+class Forward(Strongbox):
+    ID = attr(long)
+    domainID = attr(long)
+    virtuser = attr(str)
+    mailto = attr(str)
+</pre>
+
+
+<h2>What's a Strongbox?</h2>
+
+<p>Python doesn't usually make it this easy to declare what
+attributes a class has. Normally, you can add just about
+anything to an object, and python doesn't care.</p>
+
+<p>With a data model, it's nice to be able to restrict which
+attributes are available, and what can go in them. </p>
+
+<p>This is especially important when storing objects in a
+relational database, because the database only has certain
+columns. If we try to put data into an attribute without a
+corresponding column, we'll lose data, so we want to make
+sure trying would throw an error.</p>
+
+<p>The Strongbox module lets us limit an object's attributes in
+this way. For example, f you put the above code in an *.app
+file at cornerhost, and then add the line:</p>
+
+<pre>
+  d = Domain(name=&quot;webappworkshop.com&quot;)
+</pre>
+
+<p>... You'll get an error.</p>
+
+<p>
+Why? Because &quot;name&quot; is not a valid attribute of
+the &quot;Domain&quot; class. Change it to
+&quot;domain&quot; and it'll work fine.
+</p>
+
+<p>
+Besides defining simple attributes like these, Strongbox
+lets you validate attributes according to more advanced
+python features, such as lambdas, regular expressions, and
+accessor methods. <a href="#foot_3">[3]</a></p>
+
+<p>More importantly, though, defining your data objects in a
+standard form like this makes it easy to build generic tools
+to deal with them. For example, if you choose to store these
+objects in a MySQL database, you can write an class that
+will take a Strongbox object and a table name, and
+automatically generate the SQL for creating, retreiving,
+updating, and deleting the appropriate rows in the
+database. In fact, I've already done that, and I'll talk
+about that in an upcoming lesson.</p>
+
+
+<p>In the next lesson, though, we'll take a break from the
+data objects, and actually build a simple web app!</p>
+
+----
+Notes:
+
+<p>
+<a name="foot_1">[1]</a> All the nouns work as objects
+    except &quot;billing history&quot; (which would most
+    likely be a set of &quot;transaction&quot; or
+    &quot;event&quot; objects)
+</p>
+    
+<p>We wouldn't store a &quot;website&quot; in the control
+    panel database, either, but we might store the
+    information needed to configure the webserver to serve
+    that site.</p>
+
+
+<p><a name="foot_2">[2]</a> I treat my data model as a
+    relational database, which I can enhance by adding
+    behaviors. Therefore, I follow the same rules of
+    normalization (eliminating redunandcy) that one normally
+    follows when designing a database.  For a quick overview
+    of these rules, see:
+<a href="http://burks.brighton.ac.uk/burks/foldoc/35/28.htm">http://burks.brighton.ac.uk/burks/foldoc/35/28.htm</a>
+</p>
+
+
+<p><a name="foot_3">[3]</a> For more info on strongbox's
+    capabilities, see the <a
+    href="/old/strongbox.html">strongbox page</a>
+</p>
+
+
+</body>
+</html>

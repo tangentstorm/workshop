@@ -1,0 +1,12 @@
+
+Sixthday is an N-Tier framework:
+
+   * your data goes in a tabular, relational or object database
+   * ["storage"] provides a unified API for add/edit/delete
+   * ["arlo"] maps the raw data to your ["strongbox"] data classes
+   * ["sixthday"] provides generic logic for various web-based applications for dealing with your objects.
+   * ["zebra"] (or your own template system) lets you customize the look and feel of the apps.
+
+Domain-specific logic goes into your strongbox classes, so that other non-web interfaces (xml-rpc, SOAP, GUI, etc) can use the same logic.
+
+See also DesignPhilosophy

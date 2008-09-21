@@ -1,0 +1,27 @@
+= QueryBuilder =
+
+The QueryBuilder uses Python's magic variables to generate SQL WHERE statements from Python expressions:
+
+{{{
+>>> user = QueryBuilder('user')
+>>> user
+user
+>>> user.name
+user.name
+>>> user.name == 'rick'
+user.name = 'rick'
+>>> (user.name == 'rick') & (user.lastname == 'olson')
+(user.name = 'rick') AND (user.lastname = 'olson')
+>>> user.name.startswith('r')
+user.name LIKE 'r%'
+>>> user.name.endswith('k')
+user.name LIKE '%k'
+>>> user.name.contains('ic')
+user.name LIKE '%ic%'
+>>> user.ID >= 5
+user.ID >= '5'
+}}}
+
+[http://techno-weenie.com.mn.sabren.com/ex/querybuilder.py.txt download]
+
+The idea is you pass this QueryBuilder object to a method expecting a WHERE clause for an SQL query.  Also, it should be possible to convert the python expressions to other statements as well.  See my attempt at a MockQueryBuilder.

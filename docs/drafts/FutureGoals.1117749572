@@ -1,0 +1,23 @@
+Some goals: 
+
+
+  * ["weblib"]: get it working with http://twistedmatrix.com
+  * ["arlo"]: better query support ( see rick's QueryBuilder )
+  * ["storage"]: allow using keys named something other than "ID"
+  * ["zebra"]: upgrade to pyXML or 4suite (vs old xmllib)
+  * ["zebra"]: get old "group", "head", and "foot" tags working
+  * ["sixthday"]: improve the collection of canned components/apps
+  * ["ransacker"]: speed improvements, lots of refactoring
+  * better docs all around
+  * nightly web-based reports of unit test status, code coverage, etc
+
+
+Blue sky / maybe someday:
+
+  * a meta-app for creating object models, reports, etc
+  * a GUI interface (similar to Microsoft Access) for the meta-app
+  * multiple scripting languages (see http://pirate.tangentcode.com/ )
+  * storage backend for with http://www.orbtech.com/wiki/PyPerSyst  
+  * an actual SQL-like query language for arlo (??)
+  * NakedObjects interface for arlo? ( http://www.nakedobjects.org/ )
+

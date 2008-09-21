@@ -1,0 +1,210 @@
+<html>
+<head>
+<title>weblib</title>
+</head>
+<body>
+
+
+<p><em>status 0913.2005: looks okay. weblib hasn't changed
+much in years</em></p>
+
+<p>weblib is a low level web library, that provides Request,
+Response, and Session objects.</p>
+
+<p>All the existing sixthday/platonic apps use weblib. 
+however, you almost never deal with these objects 
+directly anymore.</p>
+
+<p>we should spend some time thinking about whether
+weblib is even needed now that the python community has <a
+href="http://www.python.org/peps/pep-0333.html">WSGI</a>.
+</p>
+
+<hr/>
+<pre>
+
+= weblib overview =
+
+=== summary ===
+
+The weblib package provides objects for creating dynamic web
+pages. These objects borrow the best ideas from technologies
+such as Active Server Pages, PHPLIB, and Fusebox.
+
+Specifically, weblib provides the following:
+
+  * ["weblib.Request"] manages cookies, forms, query
+  strings, and file uploads sent from the browser
+
+  * ["weblib.Response"] handles response data, mime types,
+  redirects, and other information coming from your script.
+
+  * ["weblib.Sess"] uses python's serialization features to
+  provide session handling that can span multiple machines.
+
+  * ["weblib.Engine"] ties it all together and communicates
+  with the web server. (There are separate Engines for
+  mod_python, CGI, etc.)
+
+
+=== status ===
+
+Weblib has been fairly stable since around 1999.
+
+=== to-do ===
+
+The following areas need work:
+
+  * get rid of the "config" module, which only causes trouble for new installs
+  * better documentation (flesh out this paper, write a tutorial, etc)
+  * refactor the various wrappers/Engines
+  * create a formal release (right now code is available via CVS)
+  * create a standalone weblib server (see webware project)
+  * explain how Actors can be used with XML-RPC/SOAP for web services
+
+=== quick links ===
+
+  * sourceforge: http://sf.net/projects/weblib
+  * old website: http://weblib.sourceforge.net/
+
+
+
+<h2>weblib.Request</h2>
+
+== overview ==
+
+The request object should seem familiar to Active Server
+Page developers. It provides access to information coming in
+from the browser and server's environment. This object
+should be considered read-only.
+
+== methods ==
+
+none.
+
+== attributes ==
+
+querystring - the actual query string used by the browser
+
+cookie - a dictionary containing the browser's cookie variables
+
+form - a dictionary containing the browser's form (POST) variables 
+
+query - a dictionary containing the browser's query (GET) variables 
+
+environ - a dictionary containing the server's environment variables
+
+
+
+<h2>weblib.Response</h2>
+
+== overview ==
+
+The response object is loosely based on the Response object
+provided by Microsoft's Active Server Pages. It controls a
+script's output to the browser, and also provides support
+for redirects, setting cookies, etc.
+
+== methods ==
+
+write(data) - writes data to the webout buffer (see
+below). If you use the wrapper module, you can simply call
+python's native print statement instead of response.write().
+
+
+addHeader(key, value) - adds an HTTP header to the response.
+
+
+addCookie(key, value) - adds an HTTP "Set-Cookie" header to
+the response. It does not yet allow you to specify a
+lifetime for the cookie.
+
+
+end() - sends the buffered response to the browser, then
+halts execution of the script.
+
+
+redirect(url) - sends the HTTP headers needed to redirect
+the browser to another url, then halts execution of the
+script.
+
+== attributes ==
+none. 
+
+
+<h2>weblib.Sess</h2>
+
+== overview ==
+
+The sess object is modeled after the Session class from the
+PHP Base Libraries.
+
+HTTP is a stateless protocol. This means the web server
+forgets about the browser after every request. That's nice
+for web servers, but not so nice for people writing
+interactive websites. Luckily, the HTTP protocol allows
+browsers at least two ways to "remind" the server that its
+dealing with the same browser: cookies and the url query
+string. The sess object makes use of one or both of these
+methods to allow variables to persist from page to page.
+
+For example, if a user logs in as "Fred" you can set
+sess["name"]="Fred" on one page, and sess will automatically
+remember Fred's name for every other page in your
+application.
+
+== methods == 
+
+abandon() - abandons the current session url([oldurl]) -
+returns oldurl (a string), but with the sessionID embedded
+in it.
+
+start([sid]) - called at start of page.. If sid is given, it
+will use that session ID, otherwise, it tries to get the
+session id from the response object, or, failing that,
+creates a new one. Except for test purposes, sid should
+probably be left blank.
+
+freeze() - called at end of page
+
+thaw() - this should probably be a private method..
+
+
+== attributes == 
+
+  sid - the session ID 
+
+  mode - "cookie" or "get", usually "cookie" 
+
+  fallbackMode - usually "get" 
+
+  lifetime - in minutes 
+
+  gcProb - probability of clearing out old sessions. 
+
+  gcTime - time, in minutes, before a session is considered
+  "old" and ready to be garbage collected. Note that this
+  should be greater than or equal to lifetime.
+
+== dictionary interface ==
+
+sess is a dictionary style object, and therefore provides
+has_key(), keys(), values(), and uses the standard python
+syntax for dictionaries:
+
+{{{
+x = sess[key]
+}}}
+
+== notes ==
+
+If you use the wrapper class, start() and freeze(), will be
+called for you.
+
+Data for sess is serialized via pickle and stored in a
+sesspool.
+
+
+</pre>
+</body>
+</html>

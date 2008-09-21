@@ -1,0 +1,12 @@
+
+
+  * mixing code and html is ugly and error-prone
+  * mixing code and SQL is ALMOST just as ugly
+  * SQL is nice, but it would be nicer if it ran ON TOP of your object model. (hence the goal of an ["arlo"]-specific query language.
+  * if you don't have a unit test for it, it's probably broken.
+  * write the test before you write the code
+  * most web sites are very similar, but people reinvent the wheel
+  * we are also reinventing the wheel... because we want all our wheels to match. :)
+  * minimize dependencies. we want a lot of apps to use the same small set of technologies - so that it's easier on our brains, our budgets,  and our sysadmins. 
+  * stealing ideas from smart people is a GOOD thing!
+

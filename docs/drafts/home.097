@@ -1,0 +1,40 @@
+= sixthdev: sixthday development wiki =
+
+Sixthday is an architecture for rapidly creating
+interactive, object-oriented web applications. It uses the
+PythonProgrammingLanguage and consists of the following
+modules:
+
+  * ["weblib"] - web classes similar to those in ASP and PHPLIB.
+  * ["zdc"] - flexible object-relational mapping.
+  * ["zebra"] - template language that compiles to python code.
+  * ["sdunit"] - pyUnit extensions for sixthday development.
+  * ["sixthday"] - generic web applications and helper classes.
+
+As well as the following support modules:
+
+  * ["payment"] - integration with merchant accounts for online credit card processing.
+  * ["ransacker"] - scriptable, incrementally-double-indexed search engine.
+
+Here are some starting points:
+
+   * AboutSixthday - who, what, when, where, why...
+   * CodingStandards
+   * SixthdayApplications - existing projects
+   * LinkwatcherRevival - a site redesign using sixthday.
+   * NewbieQuestions - feel free to post yours!
+   * The MemberPage directory - contributors to the project
+   * SimilarProjects we can steal... uh.. learn from :)
+
+This site is a WikiWikiWeb, or "wiki" for short. (Actually, 
+it's MoinMoin, a python wiki) That means you can edit the pages yourself as you see fit. ''Please be respectful!'' And remember to SignYourName!
+
+Feel free to look around ask questions, and create your own
+MemberPage.
+
+Have fun!
+
+--MichalWallace (sixthday project lead)
+
+
+PS: we also have a mailing list - http://groups.yahoo.com/group/sixthdev/

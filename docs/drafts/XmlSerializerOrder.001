@@ -1,0 +1,125 @@
+= Ordering of Elements in XmlSerializer =
+
+The first issue with XmlSerializer's default configuration is that it seems to put the elements in a random order.  To set a custom order, you need to pass an xml map to the serialize() method.  
+
+In .Net, the XmlSerializer uses [http://msdn.microsoft.com/library/default.asp?url=/library/en-us/csref/html/vclrfcsharpattributes.asp attributes] to specify custom settings.  Since python does not have the concept of attributes, we'll use a python dictionary instead.
+
+== Add the Xml Maps ==
+
+We will modify the previous example and add the Xml maps.  The Xml maps can optionally have a magic ''__order__'' key to set a custom order, with a tuple of property names as the value.
+
+Once the map is created, pass it once to the serialize() method for each class (Person and Manager in this example).
+{{{
+import xmlserializer
+
+personmap = { '__order__':('name', 'age', 'hobbies') }
+managermap = {'__order__':('name', 'age', 'hobbies', 'subordinates', 'boss')}
+
+bob = Person()
+bob.name = 'bob'
+bob.age = 20
+bob.hobbies.append('baseball')
+bob.hobbies.append('cars')
+
+alice = Person()
+alice.name = 'alice'
+alice.age = 21
+alice.hobbies.append('stamps')
+
+jane = Manager()
+jane.name = 'jane'
+jane.age = 26
+
+fred = Manager()
+fred.name = 'fred'
+fred.age = 25
+fred.hobbies.append('golf')
+fred.hobbies.append('tennis')
+fred.subordinates.append(bob)
+fred.subordinates.append(alice)
+fred.boss = jane
+
+# first time serializing a Person object, give it the Person xml map
+# or
+# call this before serialize():
+# xmlserializer.addMapping(Person, personmap)
+# and now the xmlserializer has the person map for that class
+print xmlserializer.serialize(bob, personmap)
+print xmlserializer.serialize(alice)
+
+# first time serializing a Manager object, give it the Manager xml map
+print xmlserializer.serialize(jane, managermap)
+print xmlserializer.serialize(fred)
+}}}
+
+== See the Results ==
+Here are the XML results:
+{{{
+<?xml version="1.0" ?>
+<Person>
+  <name>bob</name>
+  <age>20</age>
+  <hobbies_array>
+    <hobbies_item>baseball</hobbies_item>
+    <hobbies_item>cars</hobbies_item>
+  </hobbies_array>
+</Person>
+
+<?xml version="1.0" ?>
+<Person>
+  <name>alice</name>
+  <age>21</age>
+  <hobbies_array>
+    <hobbies_item>stamps</hobbies_item>
+  </hobbies_array>
+</Person>
+
+<?xml version="1.0" ?>
+<Manager>
+  <name>jane</name>
+  <age>26</age>
+  <hobbies_array>
+  </hobbies_array>
+  <subordinates_array>
+  </subordinates_array>
+</Manager>
+
+<?xml version="1.0" ?>
+<Manager>
+  <name>fred</name>
+  <age>25</age>
+  <hobbies_array>
+    <hobbies_item>golf</hobbies_item>
+    <hobbies_item>tennis</hobbies_item>
+  </hobbies_array>
+  <subordinates_array>
+    <subordinates_item>
+      <name>bob</name>
+      <age>20</age>
+      <hobbies_array>
+        <hobbies_item>baseball</hobbies_item>
+        <hobbies_item>cars</hobbies_item>
+      </hobbies_array>
+    </subordinates_item>
+    <subordinates_item>
+      <name>alice</name>
+      <age>21</age>
+      <hobbies_array>
+        <hobbies_item>stamps</hobbies_item>
+      </hobbies_array>
+    </subordinates_item>
+  </subordinates_array>
+  <boss>
+    <name>jane</name>
+    <age>26</age>
+    <hobbies_array>
+    </hobbies_array>
+    <subordinates_array>
+    </subordinates_array>
+  </boss>
+</Manager>
+}}}
+
+== Element Names ==
+
+Now we have the ordering out of the way.  So, let's see how to configure the XmlSerializer property names: XmlSerializerNames.

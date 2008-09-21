@@ -1,0 +1,167 @@
+
+The diffbot is the program that maintains the linkwatcher database.
+It's job is to:
+
+   * visit pages that haven't been checked in a while
+   * run diff and see if they've been updated
+   * add changed pages to the search engine
+
+
+Going up a level, it's likely that at least some (perhaps many/most)
+of the people maintaining the pages the diffbot watches would be
+willing to 'ping' linkwatcher when they update, and avoid polling
+entirely (at least some of them already have an automatic process
+that pings weblogs.com, for instance, and adding linkwatcher might
+be trivial).  So for those sites the diffbot wouldn't have to
+poll at all, helping with scaling issues.  -- someone else on the wiki?
+
+oI definately think the "ping" method a la weblogs.com is the
+way to go. It eliminates at least half of the work load for
+the linkwatcher. All you'll have to worry about is
+presentation.  -RickySilk
+
+
+
+At one point there was something called "suspicion", which set a flag on certain blogs that were updated too often, but this feature disappeared some time ago in a server move.
+
+Diffbot isn't smart enough to handle its current workload, so 
+it needs some help. Hence, DiffBotRevival.
+
+Here is my current thinking of how diffbot should work:
+
+== goal ==
+
+''from an email I sent to an interested developer a while back:''
+
+Priority 1 is to fix the bot. There are over 1200 blogs in the
+database, and they're all being hit once an hour. I have the bandwidth
+for this now, but obviously it's got scaling issues. So this is what I
+want:
+
+1a. Sites that are updated less frequently should be checked less
+    frequently.
+
+1b. Sites that are updated more frequently should be checked more
+    frequently.
+
+2.  Sites that are updated less frequently should appear higher
+    on the list when they ARE updated.
+
+3a. Sites that are updated every time the bot checks should be
+    marked as suspect.
+
+3b. The bot should be smart enough to recognize that single-line
+    edits (such as a random quote, typo fix, or system-generated
+    date) are not real updates. [It uses the normal "diff" command,
+    so I don't think it would be too hard to check for this.]
+    These sorts of changes should not be recorded and should not
+    trigger suspicion.
+
+    (Actually, it may be that if 3b is taken care of, 3a goes away)
+
+4. Sites that cannot be reached should not be checked at all, and
+   there should be a report of these "dead" sites available.
+
+5. All this status info needs to be stored in the database somehow.
+
+6. For indexing, I don't really care about the HTML.. just the 
+   content (or attributes, in the case of xml files). So maybe 
+   we could run it through lynx --dump or something to strip out  
+   the tags? I'm shooting for low budget here. :)
+
+   "lynx -dump -force_html 944.this"
+
+Does exactly the right thing, and as a side benefit, makes a nice
+little list of all the links at the bottom. (I eventually want to
+track links seperately and do something like daypop/blogdex)..
+
+It even sort of does the job for RSS files. The output is really ugly,
+but I can live with it for now.
+
+----
+Suppose the bot ran much more frequently... Like once every ten
+minutes.
+
+Suppose we also had a "speed" counter...
+
+If we have clocked a site at updating once an hour, then the
+speed would be 6 (we expect it to be updated once every six runs)
+
+We might start by checking it at 1:00.. Then we check back at 2:00
+(which is to say we wait six runs and then try again)... If the blog
+has changed, there's no way of knowing exactly when it was changed,
+just that it took less than an hour... So to narrow things down, we
+could increase the speed to 5 (or "an update every 5 checks").
+
+Since we're checking every five ten-minute-chunks, then we'd check
+back at 2:50... If we caught another change, we could decrement the
+wait time by one again, and so on, until it's checked every time.
+
+If a change is NOT caught, then we're checking too often, and should
+increase the wait...
+
+All this should probably happen according to a nonlinear curve..  (eg,
+no update in 3 days means check back in 4 days, not 3 days and ten
+minutes).. There should also be a cap on it, so that we always check
+at least once a week.
+
+This would serve to distribute the load between runs, allow for
+smaller jobs, and calibrate fast enough so that a blog is checked more
+often when people are awake and active, and less often when they're
+asleep or taking some time away.
+
+Generally, every update should increase the rate at which the blog is
+checked, and every check without an update should decrease the rate at
+which it's checked.
+
+[Also some sites might not want 10-minute checks.. maybe each blog
+should have it's own minimum wait or something..]
+
+
+
+
+----
+
+From a conversation with Doug L:
+{{{
+>  My first thought was that we could keep track of the
+>  times of (or the times between) the last few (say,
+>  five or so) real updates, but it feels to me like that
+>  would expose in the database schema too much of the
+>  diffbot's implementation.
+
+I wouldn't mind this approach. Having a log of every update
+might show some interesting information...
+}}}
+
+This is similar to the "history" notion from over a year ago:
+
+http://groups.yahoo.com/group/blogtech/message/23
+
+----
+
+== Future stuff ==
+
+This might fit better under LinkwatcherUserTools.
+
+notify owner when blogs marked as suspect or dead.
+
+Be able to run queries to see all the suspect or inactive blogs.
+
+
+
+----
+
+This effort is part of the larger LinkwatcherRevival.
+
+
+== 1130.2001 ==
+
+This page is the development log. (Note: WritingToCode?)
+
+
+10:53 AM - Okay, I'm here. Now what? .. I have a diffbot, and 
+  it works, but not very well. Why? Too many false positive. 
+  How to fix? Do something with diff to ignore changed lines. We 
+  only want inserts and deletes.
+

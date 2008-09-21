@@ -1,0 +1,11 @@
+Writing Good Documentation
+#meta here's some metadata
+
+
+<h2>exposing preconceived notions</h2>
+
+<ul>
+<li><strong>try out a competing product without reading the docs.</strong>
+    <p>the problems you have are probably what your users have</p>
+</li>
+</ul>

@@ -1,0 +1,24 @@
+<html>
+<head>
+<title>edit item</title>
+</head>
+<body>
+
+<form action="tracker.app" method="POST">
+    * if ID:
+        <h1>edit item</h1>
+        <input type="hidden" name="ID" value="{:ID:}"/>
+    * el:
+        <h1>make item</h1>
+
+    
+<p><input type="text" name="name" value="{:name:}"></p>
+<textarea name="value">{:value:}</textarea>
+<p><input type="submit" name="action" value="save"></p>
+    
+</form>
+
+<p><a href="tracker.app?action=make">add item</a></p>
+
+</body>
+</html>

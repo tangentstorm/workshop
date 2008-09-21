@@ -1,0 +1,24 @@
+= weblib.Response =
+part of the python weblib.
+
+== overview ==
+The response object is loosely based on the Response object provided by Microsoft's Active Server Pages. It controls a script's output to the browser, and also provides support for redirects, setting cookies, etc.
+
+== methods ==
+write(data) - writes data to the webout buffer (see below). If you use the wrapper module, you can simply call python's native print statement instead of response.write().
+
+
+addHeader(key, value) - adds an HTTP header to the response.
+
+
+addCookie(key, value) - adds an HTTP "Set-Cookie" header to the response. It does not yet allow you to specify a lifetime for the cookie.
+
+
+end() - sends the buffered response to the browser, then halts execution of the script.
+
+
+redirect(url) - sends the HTTP headers needed to redirect the browser to another url, then halts execution of the script. 
+
+== attributes ==
+none. 
+

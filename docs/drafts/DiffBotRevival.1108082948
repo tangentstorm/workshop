@@ -1,0 +1,25 @@
+The diffbot is the program that maintains the linkwatcher database.
+It's job is to:
+
+   * visit pages that haven't been checked in a while
+   * run diff and see if they've been updated
+   * add changed pages to the search engine
+
+A more detailed spec is on DiffBotSpec.
+
+Going up a level, it's likely that at least some (perhaps many/most)
+of the people maintaining the pages the diffbot watches would be
+willing to 'ping' linkwatcher when they update, and avoid polling
+entirely (at least some of them already have an automatic process
+that pings weblogs.com, for instance, and adding linkwatcher might
+be trivial).  So for those sites the diffbot wouldn't have to
+poll at all, helping with scaling issues. 
+
+I definately think the "ping" method a la weblogs.com is the way to go. It eliminates at least half of the work load for the linkwatcher. All you'll have to worry about is presentation.
+-RickySilk
+
+
+''(If a wiki maven would like to refactor this into NoticingUpdates and NoticingUpdatesViaPolling and NoticingUpdatesViaDiffBot, they're entirely welcome!)''
+
+This effort is part of the larger LinkwatcherRevival.
+

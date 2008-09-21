@@ -1,0 +1,91 @@
+
+trail {
+  width: 750px;
+  margin: 25px;
+}
+
+
+p {
+  font-family: verdana;
+  font-size: 10pt;
+  display: block;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
+pre {
+  background: #eee; 
+  font-family: monospace;
+  white-space: pre;
+  display: block;
+  border-top: solid silver 1px;
+  border-bottom: solid silver 1px;
+}
+
+
+strong {
+  font-weight: bold;
+}
+
+todo {
+  display: block;
+  color: #006;
+  font-family: monospace;
+  white-space: pre;
+  background: #9cf;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-left: solid blue 5px;
+}
+
+title {
+  font-size: 150%;
+  font-weight: bold;
+  border-bottom: solid black 2px;
+  padding-top: 25px;
+  margin-bottom: 25px;
+  display: block;
+}
+
+hr {
+  display: block;
+  border-bottom: dotted silver  1px;
+  margin-top: 25px;
+  margin-bottom: 25px;
+}
+
+
+goal {
+  margin-top: 2em;
+  margin-bottom: 1em;
+  border-bottom: solid green 1px;
+  font-size: 14pt;
+  font-weight: bold;
+  display: block;
+}
+
+task { 
+  margin-top: 1em;
+  margin-bottom: 1em;
+  border-bottom: dotted green 1px;
+  font-size: 12pt;
+  font-weight: bold;
+  display: block;
+}
+
+
+summary { 
+  background: #ffff99;
+  color: brown;
+  border: solid #eeee33 1px;
+  padding: 5pt;
+  display: block;
+  font-style: italic;
+  margin-bottom: 10pt;
+}
+
+a { 
+  color: blue;
+  text-decoration: underline;  
+}
+

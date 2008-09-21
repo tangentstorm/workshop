@@ -1,0 +1,84 @@
+= Coding Standards =
+
+These are just some guidelines I've been trying to follow for this codebase since it started several years ago. - MichalWallace
+
+== Languages ==
+We use python almost exclusively. There are many reasons for this, but the main ones are the short learning curve, restricted execution support, and general clarity of python code.
+
+== General Style ==
+
+=== the basics ===
+(unless there's a real good reason not to - eg, modifying or extending someone else's code)
+
+ * use cvs
+ * create test cases, and make sure everything passes before you check code in to CVS [see testing, below] 
+ * one statement per line 
+ * comment heavily. In python, use """docstrings"""  (or better yet, write readable code!)
+ * indent 4 spaces. no tabs.
+ * put 2 blank linkes between method / function defs 
+ * If non-python code uses curly braces, put the curlies on their own lines, or put the top curlie on the same line as the if/loop/whatever statment. 
+ * In general, optimize code for readability over performance. If performance is crucial, and must be attained at the cost of clarity, comment heavily - even to the extent of several paragraphs per line of code, if necessary. 
+
+=== capitalization / punctuation ===
+
+ * ClassName 
+ * instanceName / variableName 
+ * CONSTANT 
+ * instance.methodName() 
+ * instance.propertyName 
+ * _protectedMember 
+ * __privateMember (python mangles this with classname) 
+ * SELECT * FROM table WHERE x=1 
+
+=== avoid: ===
+ * avoid names_like_this (except for get_, set_, test_, etc)
+
+=== variable naming conventions ===
+  * dbc - database connection 
+  * cur - database cursor 
+  * clerk - ["arlo.Clerk"] instance
+  * sql - string containing a sql statement. Always use this if you're building a sql statement. eg, blah(sql) rather than blah("select" + fields + " from " + table). This makes debugging easier, especially on the web. ''(but DontUseSQL!!!)''
+
+Generic variables. (Only if there's not a more obvious/specific variable name):
+
+ * i - generic index in a range loop. eg, for i in range(10) 
+ * j - same as above, but for nested loops 
+ * k,v - key, value 
+ * **kw - keyword argument catch-all. eg: def f(x, y=2, **kw) ... 
+ * item - generic index in a list loop.  ("for item in whatever:")
+
+=== databases ===
+
+ * Tables that contain application data should have a numeric, primary key called ID. 
+ * Most table's ID should be auto_incremented. 
+ * For 1:1 IS-A relationships, the subclass's table should have the same ID as the parent class. (eg, class.ID=subclass.ID) ''(rare)''
+ * Reference tables should have an ID field like the above, except for tables mapping alphanumeric codes to values. These tables should use "CD" for the code field. (eg, "SELECT ID FROM fnorb" but "SELECT state FROM ref_states WHERE CD='TX'") 
+ * Simple junction tables don't need an ID field, unless it makes sense. ''@TODO: not sure about this with Clerk''
+ * When using foriegn keys, use the tableID/tableCD style. If a table has more than one reference to another table, prefix it with a descriptive name and an underscore, eg: manager_employeeID, assistant_employeeID. 
+ * table names should be in the form: prefix_noun for normal tables, or prefix_noun_noun for junction tables. Prefix should be a 2 to 4 character string grouping the tables (eg: "ref" or "iso" for reference tables, "lnk" for linkwatcher, "base" for zikebase, etc) 
+
+=== objects ===
+
+Objects should be as dumb as possible. I don't want to have to fire up MySQL on my laptop just to instantiate a Person() class.
+
+== Testing ==
+
+We're big on unit testing. Every class should have at least one test case. Probably quite a few. When writing programs, Code the unit test first.
+
+We use an open source python testing tool called PyUnit. PyUnit allows you to build test cases and compile them into test suites. We have some standards:
+
+  * for every package, have a subdirectory called spec
+  * ./spec contains a variety of *Test.py files
+  * run ["sdunit"] to test those files 
+  * also use test_xxxx for all test names so each test file works with the default unittest configuration
+  * for that matter, include this code in each test:
+
+{{{
+if __name__=="__main__":
+    unittest.main()
+}}}
+
+'''IMPORTANT:''' TESTS SHOULD NOT CONNECT TO A DATABASE!
+That's what ["arlo.MockClerk"] is there for.
+
+It is also important to stick to this standard for the purposes of a nightly distribution-bundling mechanism ''(STILL not implemented)'' that will make the latest CVS code available in a developer's tarball.

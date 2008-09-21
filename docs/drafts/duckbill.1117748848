@@ -1,0 +1,199 @@
+Duckbill is a ["sixthday"] app that handles billing for subscription
+and one-time services. 
+
+This is the design doc, as of 12/1/2001 or so. It doesn't include the notion of Accounts, but other than that, it's pretty much up to date:
+
+--MichalWallace
+
+----
+
+= duckbill executive summary =
+
+Duckbill tracks a financial picture of your business.
+It is not a complete accounting package. Rather, it 
+focuses on customers, sales, and receivables. It can
+also generate and send statements to your customers.
+
+= catchup =
+
+== overview ==
+
+The most important feature of duckbill is the "catchup"
+routine. Running catchup does the following:
+
+   * back-posts charges for subscriptions that have come due
+   * sends statements to customers that need them
+
+You run catchup at scheduled intervals. Billing cycles tend 
+to span days, weeks, and months, so there's usually no
+need to deal with billing on a second-by-second basis.
+
+Of course, the more often you run catchup, the more accurate
+your financial picture will be, until you reach a point of 
+diminishing returns. Running catchup once an hour or once a
+day should be sufficient for most businesses.
+
+
+== the Provider class ==
+
+Since each business is unique, duckbill coordinates
+business-specific logic through the Provider class.
+
+Provider contains the basic catchup logic. You should
+instantiate it directly. The cycle logic is encoded in the
+Cycle class, used by Subscription and Account classes.
+ 
+pvd = Provider(dbc)
+     dbc: database connection
+ 
+== when is something due? (the Cyclic mixin) ==
+
+Two things have due dates: 
+    * accounts are due for statements
+    * subscriptions are due for charges
+
+Both are handled the same way:
+    * they have a nextDue date
+       * if nextDue is in future, we don't bill yet.
+       * if nextDue is null, we never bill.
+       * we usually want nextDue <= now
+
+Since both have the same logic, both make use of a
+mixin class called Cyclic. Cyclic handles the work of
+deciding when things are due, updating the nextDue
+field, and calling onDue and onCatchup.
+
+== Cycle  ==
+
+Since the cycle for posting charges can change, AND it can
+be shared by the statement cycle, we encapsulate it in a
+Cycle class. Each Cyclic contains a reference to a Cycle.
+Each Cycles class is a Singleton.
+
+Right now, there are two Cycles:
+
+   * MonthlyCycle
+   * YearlyCycle
+
+== catchup part 1: post charges ==
+
+A first thought is to just go through all due subscriptions
+and post charges for each.
+
+However, what happens if the subscription became due more
+than once between the last time we ran catchup() and today?
+We have to keep cycling through until we're caught up.
+
+So something like:
+
+{{{
+Provider.postCharges(self, fordate):
+    while 1:
+        due = self.dueSubscriptions()
+        if len(due)==0:
+            break
+        for sub in due:
+            sub.onDue()
+}}}
+
+== posting a charge ==
+
+Subscription.onDue() should post a charge to the
+account and update nextDue
+
+We don't need to pass it any extra info, because it uses the
+cycle to calculate both the charge and next Due. The charge
+is posted on the current dueDate.
+
+== catchup part 2: send statements ==
+
+Statments are much simpler, because we won't need to send
+someone multiple statements for the same account all at
+once. (If multiple statements should have been sent, all the
+data would be consolidated onto a single statement)
+
+{{{
+Provider.sendStatements():
+    for acc in self.dueAccounts()
+        acc.onDue()
+}}}
+
+== sending a statement ==
+
+There are basically two parts to sending a statement.
+    * send it
+    * add an event saying that we sent it
+
+If it's due, the event should be a statement event. If
+it's not due, it should just be an informational event.
+
+
+== what is the current statement? ==
+
+Current statement is all events between last statement date
+and today.
+
+
+== how do I find last statement? ==
+
+Last statement is the statement event with the biggest
+"posted" value. If no statement events, we want the
+open date for the account.
+ 
+
+== what's on a statement? ==
+
+A statement is just a read-only account that filters events by time.
+It also has a start and end balance.
+
+The display of a statement should include:
+    * customer information (name and address)
+    * subscription list - started, date, next bill date
+    * old balance
+    * new balance (old balance + charges - credits)
+    * list of all events in the time period
+
+
+= admin web interface =
+
+== add/edit Customers ==
+  * subclass AdminApp
+  * no delete
+== add/edit Subscriptions  ==
+  * AdminApp, compare product-style thing in zikeshop.
+  * make sure new subscriptions have nextDuedate=now() by default
+  * no delete either, but mark as closed
+== add/edit/delete Events per Subscription ==
+  * should be similar to above.
+  * allow modifications of other event types
+  * manually enter payments.. balance is updated automatically
+  * delete is allowed
+
+
+= future =
+* DeliveryMechanism:
+could be extracted so you can have statements sent to customers
+via mail, email, etc, or have different rules for different 
+customers.
+{{{
+   statement should be emailed to administrator and the customer
+   >> zikebase.sendmail(zebra.fetch("filename", statement))
+}}}
+    * command line interface? duckbill shell?
+    * affiliate program support
+    * enable charges/payments later the same day that the bill goes out
+this probably  means using datetimes on all events
+    * normalize services
+    * generate a bill for a specific date
+    * report on all subscriptions where nextDuedate is null
+    * allow users to suppress statements when 0 balance
+    * allow grouping Subscriptions by Account (?)
+    * forecast cash flow for current month
+    * report on cash flow for past months
+    * prepackaged subscriptions (services)
+    * auto bill customers and enter payment automatically
+    * graph users/accounts over time
+    * late fees
+    * link Customer.tsAdd to the open event's posted date
+    * maybe add some sort of auditing for deleting events
+

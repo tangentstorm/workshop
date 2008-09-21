@@ -1,0 +1,290 @@
+<trail>
+
+<title>tracker: a naive database app</title>
+
+<todo>this trail still needs to include the zebra templates</todo>
+
+<p>Here is how to implement a simple web application using the
+workshop architecture. This app lets you edit records in a single
+table. Items are a nice generic thing to track, so let's say we're
+tracking Items.</p>
+
+<p>This app should have the following features:</p>
+
+<pre>
+<ul>
+<li>list all known items</li>
+<li>show a page for an existing item</li>
+<li>show a form for an existing item</li>
+<li>show a form for a new item</li>
+<li>save an item</li>
+<li>delete an item</li>
+</ul>
+</pre>
+
+<p>We'll be building on this application as we go along. Right now,
+we're limiting ourselves to using the storage module.  Later on we'll
+see how strongbox can make some of this easier.</p>
+
+<p>We also won't worry about error checking here. That's a whole other
+chapter. :)</p>
+
+<p>For now, we'll just go down the list using the tools we have.  Our
+first feature is the list of known items. We'll go test first, as
+usual. Here's how it should work:</p>
+
+
+<goal>list of known items</goal>
+
+<pre>
+MEMORYDB=":memory:" # sqlite magic
+from pysqlite2 import dbapi2 as sqlite
+import os
+
+def getDB(fname, init_func):
+    new = (fname == MEMORYDB) or not os.path.exists(fname)
+    dbc = sqlite.connect(fname)
+    if new:
+        init_func(dbc)
+    return dbc 
+
+def itemSchema(dbc):
+    cur = dbc.cursor()
+    cur.execute(
+        """
+        create table item (
+            ID integer primary key,
+            name text,
+            value text
+        )
+        """)
+
+
+from storage import PySQLiteStorage
+def newTestStore():
+    return PySQLiteStorage(getDB(MEMORYDB, itemSchema)) 
+
+import unittest
+
+# settle on a table name:
+ITEM_TABLE="item"
+
+
+
+class ItemListTest(unittest.TestCase):
+        
+    def test_empty(self):
+        # if we invoke the feature on an empty database,
+        # it should return an empty list of items:
+        stor = newTestStore()
+        self.assertEquals(
+            [],
+            listItems(stor)["items"])
+        
+    def test_withData(self):
+        # but if we add data, we should see that instead:
+        stor = newTestStore()
+        abc = stor.store(ITEM_TABLE, name="abc", value="xyz")
+        self.assertEquals(
+            # only we see it as a plain dictionary,
+            # so our template engine can use it:
+            [{"ID": abc["ID"], "name":"abc", "value":"xyz"}],
+            listItems(stor)["items"])
+</pre>
+
+<p>This is pretty easy to implement:</p>
+
+<pre>
+def listItems(STOR):
+    return dict(items=STOR.match(ITEM_TABLE))
+</pre>
+       
+
+<goal>showing the item page</goal>
+
+<p>The next two features involve showing an existing item. One shows
+it as a page, the other shows it as a form. In other words, we only
+need one object to implement the two pages - we'll just put different
+templates on the same model later. So here's how that model should
+look:</p>
+
+<pre>
+class SingleItemTest(unittest.TestCase):
+    def test(self):
+        stor = newTestStore()
+        e = stor.store(ITEM_TABLE, name="e", value="mc^2")
+
+        model = singleItem(stor, ID=e["ID"])
+        self.assertEquals(e["ID"], model["ID"])
+        self.assertEquals("e", model["name"])
+        self.assertEquals("mc^2", model["value"])
+</pre>
+
+
+<p>And here's how we implement it.</p>
+
+<pre>
+def singleItem(STOR, ID):
+    return STOR.fetch(ITEM_TABLE, ID=ID)
+</pre>
+        
+
+
+<goal>form to add/edit items</goal>
+
+<p>Next up is the form for a new item. Here we
+get into the question of default values. This
+is one of the main reasons we want to have
+data classes: so that the class itself is
+responsible for what those defaults will be.
+But since we don't have those yet, we'll just
+make up a new dictionary:</p>
+
+<pre>
+class NewItemTest(unittest.TestCase):
+    def test(self):
+        stor = newTestStore()
+        model = newItem()
+        self.assertEquals(None, model["ID"])
+        self.assertEquals("", model["name"])
+        self.assertEquals("", model["value"])
+
+
+def newItem():
+    return dict(ID=None, name="", value="")
+</pre>
+
+<goal>save item to database</goal>
+
+
+<p>Saving works like this:</p>
+
+
+<pre>
+class SaveItemTest(unittest.TestCase):
+    def test(self):
+        # start out empty:
+        stor = newTestStore()
+        assert stor.match(ITEM_TABLE) == [], \
+               "we should be starting with an empty database"
+
+        # now use the feature to add data:
+        saveItem(stor, ID=None, name='x', value='123')
+
+        # it should have populated our database:
+        rows = stor.match(ITEM_TABLE)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["ID"] is not None
+        assert row["name"] == "x"
+        assert row["value"] == "123"
+</pre>
+
+<p>easy:</p>
+
+
+<pre>
+def saveItem(STOR, ID, name, value):
+    STOR.store(ITEM_TABLE, ID=ID, name=name, value=value)
+</pre>    
+
+
+
+
+<goal>deleting an item</goal>
+<p>Last feature: delete an item. Also easy:</p>
+
+
+<pre>
+class DeleteItemTest(unittest.TestCase):
+    def test(self):
+
+        # we start out with some data:
+        stor = newTestStore()
+        stor.store(ITEM_TABLE, name="a", value="ant")
+        stor.store(ITEM_TABLE, name="b", value="bat")
+        stor.store(ITEM_TABLE, name="c", value="cat")
+        stor.store(ITEM_TABLE, name="d", value="dog")
+
+        # now let's delete the "bat" entry.
+       
+        # first we need to find the ID. In all likelyhood
+        # the ID is 2, but we're not going to rely on
+        # implementation details here. We'll look it up:
+        batID = stor.match(ITEM_TABLE, value="bat")[0]["ID"]
+
+        # okay, now we can use the feature to delete the row:
+        deleteItem(stor, ID=batID)
+        
+        assert not stor.match(ITEM_TABLE, value="bat")
+</pre>
+
+
+<pre>
+def deleteItem(STOR, ID):
+    STOR.delete(ITEM_TABLE, ID)
+</pre>
+
+
+
+<goal>define the app</goal>
+
+<p>Okay, so now we have all these features, but they're just
+features. We need to put them inside an App.</p>
+
+
+<pre>
+import zebra
+from platonic import WebApp
+
+class TrackerApp(WebApp):
+
+    QUERIES = {
+        "list":   [listItems,    "list.zb"],
+        "show":   [singleItem,   "show.zb"],
+        "edit":   [singleItem,   "edit.zb"],
+        "make":   [newItem,      "edit.zb"],
+    }
+
+    COMMANDS = {
+        "save":   [saveItem, "list"],
+        "delete": [deleteItem, "list"],
+    }
+
+    DEFAULT = "list"
+</pre>
+
+<pre>  
+    def __init__(self, store):
+        self.store = store
+        self.special["STOR"] = self.store
+</pre>
+
+<todo>
+Hmm... We really only need to commit the data 
+if there's a post. And also why can't we do 
+autocommit?
+</todo>
+
+<pre>        
+    def invoke(self, req, meth):
+        data = super(TrackerApp, self).invoke(req, meth)
+        self.store.dbc.commit()
+        return data
+</pre> 
+
+
+<p>obvious questions: what advantage do we get from coding these
+things as objects? we want them sometimes, but why not just use
+callables, so we can include functions?</p>
+
+
+<p>Check our work by running the tests:</p>
+
+<pre>
+if __name__=="__main__":
+    unittest.main()
+</pre>
+
+
+</trail>

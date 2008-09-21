@@ -1,0 +1,45 @@
+
+@TODO: pace and lead. start like a pure beginner.
+my goal is to lead you from a base understanding of the
+technology to a true understanding... 
+
+php security howto:
+  'the most common design is stream of consciousness'
+
+- testability: divide into functions
+- flexability: sqlite vs mysql, cgi vs wsgi, etc.
+
+@TODO: just start with pure CGI, sql, and html
+@TODO: then show the unicode, sql, and other issues
+
+@TODO: make the inspect refactoring explicit
+
+
+everyone follows the same basic process
+BUT, we want to do it with less work at a higher 
+level of abstraction.
+
+- define the fields
+- create the table
+- create the form
+- show the form
+- parse the data
+- generate the sql
+
+----- outline ------
+
+newbie app
+storage
+templates
+platonic for composition, mix/match
+generic form handler
+strongbox for validation
+storage - arlo - storage "sandwich" 
+amoeba - with data objects, do we still need a database?
+,
+
+
+
+@TODO: use pysqlite so we can get metadata...
+
+

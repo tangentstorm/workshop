@@ -1,0 +1,217 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+<title>workshop lesson 04: App and WikiApp</title>
+</head>
+<body>
+
+<b>Michal Wallace</b> 
+<i>Mon, 27 May 2002 08:41:24 -0400 (Eastern Daylight Time)</i>
+
+
+<p><em>status 0913.2005: this is hella outdated. sixthday is dead. long live platonic! however, it's a good early example of trailblazing...</em></p>
+
+<h1>App and WikiApp</h1>
+
+(<em>0913.2005: huh. I thought that was a Nietzsche
+reference, but it's actually a <a
+href="http://www.gutenberg.org/etext/3328">George Bernard
+Shaw reference</a>.  (But it's all good, because Shaw was
+referencing Nietzche :)</em>)
+
+<pre>
+* Hello Again!
+
+Our old hello.app file looked like this:
+
+###
+print &gt;&gt; RES, &quot;Hello, world!&quot;
+###
+
+
+Nice and simple. But here's how I'd *REALLY* write it:
+
+
+###
+&quot;&quot;&quot;
+HelloApp: a &quot;hello world&quot; webApp
+&quot;&quot;&quot;
+from sixthday import App
+
+class HelloApp(App):
+    def act_(self):
+        self.write(&quot;Hello, world!&quot;)
+
+if __name__==&quot;__main__&quot;:
+    print &gt;&gt; RES, HelloApp(REQ).act()
+###
+
+
+
+* What Does all That Mean?
+
+Very quickly, here's what that code says in English:
+
+   We want to work with App objects, which are defined 
+   in a python package called sixthday.
+
+   A HelloApp is just like an App, except:
+       when a HelloApp is asked to &quot;act_&quot;,
+           it says &quot;Hello, world!&quot;
+
+   If someone's trying to actually run this file
+   (rather than reuse our definitions somewhere else):
+
+       Make a new HelloApp, passing it the REQuest object
+       for input, and tell the HelloApp to &quot;act&quot;. 
+       Send whatever it says out to the RESponse object.
+
+
+
+* WikiApp: A Little More Challenging
+
+We've grown from one line of code to six and a comment. What
+did it buy us? 
+
+If all we want our program to do is say hello, we've gained
+nothing. But most programs are more complex. For example,
+let's consider a simple wiki.
+
+A wiki is a website that anybody can edit. It's not easy
+to explain if you've never used one, so if you haven't,
+follow this link to the original wiki:
+
+      <A HREF="http://www.c2.com/cgi/wiki?WelcomeVisitors">http://www.c2.com/cgi/wiki?WelcomeVisitors</A>
+
+      (And by the way: that particular wiki is FULL of great writing
+      about object-oriented programming and the &quot;eXtreme Programming&quot;
+      practices. It's definitely worth wandering around in!)
+
+A wiki has several required features:
+
+     - show a page, given a WikiPageNameLikeThis
+     - provide a form where anyone can edit a page
+     - save the page once its been edited
+     - WikiPageNames automatically turn into hyperlinks
+
+There's a bigger list at: <A HREF="http://www.c2.com/cgi/wiki?WikiPrinciples">http://www.c2.com/cgi/wiki?WikiPrinciples</A> 
+but I wanted to keep this simple.
+
+If you notice, the first three features each occur in a separate HTTP
+request: Click a link to bring up a page, click a link to bring up the
+form, click a submit button to post and save.
+
+
+
+* Apps are Objects!
+
+The logic behind those three actions is simple. But how should we
+organize it? Do we make three separate scripts? One script with 
+a bunch of if-then statements?
+
+Both approaches are common. The first few times I built an an app in
+VBScript (ASP), I went for the &quot;one big file&quot; approach. I found this
+made ASP files hard to debug. Later I experimented with separate files
+for each feature; big files full of common functions; separate files
+for logic and HTML; and a ColdFusion approach called FuseBox where the
+whole app is one big switch statement, with each feature defined
+outside the main file.
+
+My point is: organizing code becomes a real problem as projects get
+bigger, and there are lots of opinions out there about what works
+best. App is mine.
+
+The magic of App is that each App can handle multiple functions, and
+those functions can be accessed dynamically, based on an &quot;action&quot;
+parameter in the query string or form post.
+
+In other words, WikiApp's structure might look like this:
+
+###
+class WikiApp(App):
+    def act_show(self): pass
+    def act_edit(self): pass
+    def act_save(self): pass
+print &gt;&gt; RES, WikiApp(REQ).act()
+###
+
+When the &quot;act()&quot; message is sent on the last line,
+the WikiApp figures out which method to call based
+on an &quot;action&quot; parameter.
+
+For example, browsing to <A HREF="http://.../wiki.app?action=show">http://.../wiki.app?action=show</A>
+would run the act_show() method.
+
+If no ?action=XXX is given, Apps call a default method 
+named &quot;act_()&quot;, which we saw earlier in the HelloApp. In
+a wiki, our default action might be to show the front page:
+
+###
+    def act_(self):
+        self.input[&quot;page&quot;]=&quot;FrontPage&quot;
+        self.act_show()
+###
+
+What is self.input? Well, in this case, it's just the REQ object.
+But we call it &quot;self.input&quot; inside the App because Apps don't
+necessarily have to be run through the web.
+
+
+* Apps Get Around
+
+That bears repeating: App objects do not necesarily have to run
+through the web. Where else might they run? Perhaps in a GUI app, or
+from the command line, from inside another App, or from an automated
+test case.[1]
+
+Because Apps are objects, they can be used just about anywhere.  They
+can also be subclassed: you can create a BetterWikiApp that is just
+like WikiApp except for one little part, and you don't even have to
+cut and paste:
+
+###
+class BetterWikiApp(WikiApp):
+   ...
+###
+
+
+* Check it Out:
+
+Anyway, with those concepts out of the way, the rest of the 
+wikiApp code is pretty straightforward. Take a look at the
+code and see if you can figure out how it works:
+
+    <A HREF="http://www.webappworkshop.com/apps/webAppWiki-0.1/wikiApp-source.txt">http://www.webappworkshop.com/apps/webAppWiki-0.1/wikiApp-source.txt</A>
+
+You can try it out here:
+
+    <A HREF="http://www.webappworkshop.com/apps/webAppWiki-0.1/wiki.app">http://www.webappworkshop.com/apps/webAppWiki-0.1/wiki.app</A>
+
+And you can download it here: 
+
+    <A HREF="http://www.webappworkshop.com/apps/webAppWiki-0.1.tgz">http://www.webappworkshop.com/apps/webAppWiki-0.1.tgz</A>
+
+Feel free to post any questions you have to the workshop list!
+
+
+* Next up: Another App!
+
+Next time, we'll make a &quot;beginners&quot; attempt at a database-backed App,
+and see what we can do to make it better.
+
+* Notes:
+
+[1] Automated test cases make programming *much* more fun, but
+    that's a topic for another day. For more on this idea, see:
+
+          <A HREF="http://www.c2.com/cgi/wiki?CodeUnitTestFirst">http://www.c2.com/cgi/wiki?CodeUnitTestFirst</A>
+
+
+-----------
+
+(c)2002 sabren enterprises inc
+feel free to forward this to a friend!
+
+</pre>
+</body>
+</html>

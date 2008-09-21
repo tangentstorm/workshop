@@ -1,0 +1,21 @@
+Every hour, the ["watcherbot"] from [http://www.linkwatcher.com/ linkwatcher.com] visits weblogs around the world, checking for 
+changes and updating a database. 
+
+Over time, the site has become quite popular. With over 1500 blogs 
+in the database, linkwatcher has become "too big for its britches". For example, the "fresh blogs" list is overrun with false positives due to randomly generated html. Even then, there are more blogs legitimately updated each hour than can fit on a single page.
+
+So it's time for a change!
+
+The LinkwatcherRevival project aims to:
+
+  * supply linkwatcher users with much more powerful tools for searching, monitoring, and discovering new blogs.
+  * improve the quality of information by monitoring frequently updated sites more often, and less frequently updated sites less often. (see DiffBotRevival)
+  * provide blog owners better tools for promoting their sites.
+  * clean up existing code and provide a showcase for the SixthDay software architecture
+
+
+This project is in active development. Read what's going on at the LinkwatcherRevivalBlog ... The stuff that's left to be done is at LinkwatcherToDo.
+
+Feel free to discuss the project on this wiki, or on the weblog-monitor mailling list: http://groups.yahoo.com/group/blogtech/
+
+--MichalWallace

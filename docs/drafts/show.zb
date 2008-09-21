@@ -1,0 +1,14 @@
+<html>
+<head>
+<title>edit item</title>
+</head>
+<body>
+
+<h1>{:name:}</h1>
+
+{:value:}
+
+<p><a href="tracker.app?action=edit&ID={:ID:}">edit this item</a></p>
+
+</body>
+</html>

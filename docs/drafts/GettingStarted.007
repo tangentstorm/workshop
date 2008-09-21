@@ -1,0 +1,11 @@
+= Getting Started with Sixthday =
+
+Welcome!  These are some notes I've been taking while learning how to use the Sixthday modules.  For me, the best way to get to know a module is some example source code... -- RickOlson
+
+== Intro ==
+
+There was one big hurdle for learning the Sixthday python modules.  ''Where do I start?''  The source of [http://www.rantelope.com/ Rantelope] is very abstract.  Most of the work is done in the underlying modules.  So, I find it's best to start from the bottom.  And in most n-tier applications, that would be the Data Abstraction Layer.
+
+== Your Data Model ==
+
+  1. DataModelPartOne -- a simple class using ["strongbox"]

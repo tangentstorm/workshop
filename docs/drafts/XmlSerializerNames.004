@@ -1,0 +1,95 @@
+= Custom Element Names in XmlSerializer =
+
+The next step in XmlSerializer customization is configuring the element names.  This will allow us to map new classes to existing Xml formats, or just fine tune the schema of a new one.
+
+== Add the Xml Maps ==
+
+Again, we will modify the previous example and change only the Xml maps.  In addition to the ''__order__'' key, there are some new ones:
+{{{
+personmap = {'__order__':('name', 'age', 'hobbies'),
+             '__class__':{'__name__':'person' },
+             'hobbies'  :{'__name__':('hobbies', 'hobby')},
+             'name'     :{'__name__':'firstname'}}
+
+managermap = {'__order__'   :('name', 'age', 'hobbies', 'subordinates', 'boss'),
+              '__class__'   :{'__name__':'manager'},
+              'name'        :{'__name__':'firstname'},
+              'hobbies'     :{'__name__':('hobbies', 'hobby')},
+              'subordinates':{'__name__':('subordinates', 'person')}}
+}}}
+
+=== __class__ ===
+The ''__class__'' key sets the element name of the root element.  Note that if the class is included or linked to within another class, it assumes the property name of the parent class (look at the Manager &#187; Person relation).  Its value is set to another python dictionary for the ability to add other properties later.  It contains the ''__name__'' key, with the new name of the element as its value.
+
+=== Properties ===
+Note that each property may have an entry in the xml map.  If no entry for that element is given, it will be serialized using the default settings (an element with a name directly matching the property name).  It also has a dictionary for its value, just like the ''__class__'' key.
+
+While the ''name'' property contains a string for its ''__name__'' value, the linkset properties ''hobbies'' and ''subordinates'' have a tuple.  The tuple specifies the name of the containing element and each item element.
+
+== See the Results ==
+Here are the XML results:
+{{{
+<?xml version="1.0" ?>
+<person>
+  <firstname>bob</firstname>
+  <age>20</age>
+  <hobbies>
+    <hobby>baseball</hobby>
+    <hobby>cars</hobby>
+  </hobbies>
+</person>
+
+<?xml version="1.0" ?>
+<person>
+  <firstname>alice</firstname>
+  <age>21</age>
+  <hobbies>
+    <hobby>stamps</hobby>
+  </hobbies>
+</person>
+
+<?xml version="1.0" ?>
+<manager>
+  <firstname>jane</firstname>
+  <age>26</age>
+  <hobbies>
+  </hobbies>
+  <subordinates>
+  </subordinates>
+</manager>
+
+<?xml version="1.0" ?>
+<manager>
+  <firstname>fred</firstname>
+  <age>25</age>
+  <hobbies>
+    <hobby>golf</hobby>
+    <hobby>tennis</hobby>
+  </hobbies>
+  <subordinates>
+    <person>
+      <firstname>bob</firstname>
+      <age>20</age>
+      <hobbies>
+        <hobby>baseball</hobby>
+        <hobby>cars</hobby>
+      </hobbies>
+    </person>
+    <person>
+      <firstname>alice</firstname>
+      <age>21</age>
+      <hobbies>
+        <hobby>stamps</hobby>
+      </hobbies>
+    </person>
+  </subordinates>
+  <boss>
+    <firstname>jane</firstname>
+    <age>26</age>
+    <hobbies>
+    </hobbies>
+    <subordinates>
+    </subordinates>
+  </boss>
+</manager>
+}}}

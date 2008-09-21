@@ -1,0 +1,152 @@
+<?xml version="1.0"?>
+<trail name="Triple CRUD">
+
+<synopsis>
+In which we introduce triples as a general purpose 
+data structure, and implements basic create, retrieve, 
+update, and delete operations for the amoeba API.
+</synopsis>
+
+
+<h1>Triples</h1>
+
+<p>Triples are a simple data type consisting (not surprisingly) 
+of three elements:</p>
+
+<ul>
+<li>a <strong>subject</strong></li>
+<li>a <strong>predicate</strong></li>
+<li>and an <strong>object</strong></li>
+</ul>
+
+<p>Here are a few examples:</p>
+
+<table>
+<tr>
+  <th>subject</th>
+  <th>predicate</th>
+  <th>object</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td>&lt;</td>
+  <td>2</td>
+</tr>
+<tr>
+  <td>I</td>
+  <td>am-named</td>
+  <td>Michal</td></tr>
+<tr>
+  <td>I</td>
+  <td>like</td>
+  <td>python</td></tr>
+<tr>
+  <td>python</td>
+  <td>is-a</td>
+  <td>programming language</td></tr>
+<tr>
+  <td>cows</td>
+  <td>eat</td>
+  <td>grass</td></tr>
+<tr>
+  <td>sharks</td>
+  <td>eat</td>
+  <td>everything</td>
+</tr>
+</table>
+
+<p>As you can see, we can build complicated data structures - such as
+hierarchies, lists, tables, or any other kind of graph - simply by
+writing triples. This flexibility is what will separate amoeba from a
+more traditional relational database. In fact, just about everything
+that happens in amoeba eventually boils down to an operation on
+triples, so this is a good place to start. </p>
+
+
+<h1>Leveraging the Semantic Web</h1>
+
+<p>It turns out that a lot of people are interested in triples. In
+fact, they&apos;re at the core of the <a
+href="http://www.w3.org/TandS/#Semantic">semantic web</a> movement, in
+the form of <a href="http://www.w3.org/RDF/">RDF</a>, the Resource
+Description Framework. RDF is a well-defined, standard format for
+expressing amorphous data, supported by <a
+href="http://www.w3.org/TR/rdf-sparql-query/">a generic query
+language</a>, <a href="http://www.w3.org/RDF/Metalog/">reasoning
+systems</a>, and <a href="http://www.w3.org/2001/11/IsaViz/">graphical
+interfaces</a>.</p>
+
+<p>Users should not have to know or care about RDF in order to use
+amoeba, but it does make sense to leverage the tools that are already
+out there. Our goal should be to shield casual users from having to
+know anything about RDF, but keep the full power of RDF around for the
+serious semantic web users.</p>
+
+
+<h1>RDF Frameworks</h1>
+
+<p>Now, since we&apos;re working in python, we can get a huge head start on
+RDF support by downloading a pre-existing package. The trouble is,
+there are a bunch of them:</p>
+
+<ul>
+<li><a href="http://librdf.org/docs/python.html">Redland</a></li>
+<li><a href="http://www.xml.com/pub/a/2000/10/11/rdf/index.html">4RDF</a></li>
+<li><a href="http://rdflib.net/Graph/">RDFLib</a></li>
+<li><a href="http://infomesh.net/pyrple/">pyrple</a></li>
+<li><a href="http://www.mnot.net/sw/sparta/">sparta</a></li>
+<li><a href="http://www.aaronsw.com/2002/tramp">TRAMP</a></li>
+</ul>
+
+<p>That&apos;s just a partial list from a quick google search. The three
+most well-developed frameworks (as of July 2005) appear to be Redland,
+4RDF, and RDFLib.</p>
+
+<p>Rather than evaluating each of these here, my plan is to put off
+the decision by picking one and buffering it with an abstraction layer.
+That way we can change our minds or pick a new framework later.</p>
+
+<p>Meanwhile, Redland seems like the best-documented of the lot.  It&apos;s
+also written in C (with bindings for python and other languages),
+which might imply a speed advantage over the others. In any case,
+Redland&apos;s the one I&apos;ll be using. :)</p>
+
+<h1>Installing Redland</h1>
+
+<p>If you&apos;re on one of my servers, Redland will be installed already
+by the time you read this. Otherwise, get the download and instructions 
+from <a href="http://librdf.org/">librdf.org</a>.</p>
+
+
+<h1>Triple CRUD</h1>
+
+<p>Okay, finally time to write some code. Our first goal is to create
+and store a triple, but in order to test for that, we&apos;ll also
+need to be able to query.  Here&apos;s the test case:</p>
+
+<code>
+<flow stream="tests">
+  <flow chunk="imports">
+  import unittest
+  import amoeba
+  </flow>
+
+  <flow chunk="TripleCrudTest">
+  class TripleCrudTest(unittest.TestCase):
+    <flow chunk="test_create">
+      def test_create(self):
+          ardf = amoeba.RDFStore()
+          assert list(ardf.triples()) == []
+          ardf.store(amoeba.Triple("a","b","c"))
+          assert list(ardf.triples()) == [amoeba.Triple("a","b","c")]
+    </flow>
+    <insert-here/>
+  </flow>
+  <insert-here/>
+
+  if __name__=="__main__":
+      unittest.main()
+</flow>
+</code>
+
+</trail>

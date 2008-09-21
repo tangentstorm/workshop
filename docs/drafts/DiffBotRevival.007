@@ -1,0 +1,55 @@
+
+The diffbot is the program that maintains the linkwatcher database.
+It's job is to:
+
+   * visit pages that haven't been checked in a while
+   * run diff and see if they've been updated
+   * add changed pages to the search engine
+
+At one point there was something called "suspicion", which set a flag on certain blogs that were updated too often, but this feature disappeared some time ago in a server move.
+
+Diffbot isn't smart enough to handle its current workload, so 
+it needs some help. Hence, DiffBotRevival.
+
+Here is my current thinking of how diffbot should work:
+
+== goal ==
+
+''from an email I sent to an interested developer a while back:''
+
+Priority 1 is to fix the bot. There are over 1200 blogs in the
+database, and they're all being hit once an hour. I have the bandwidth
+for this now, but obviously it's got scaling issues. So this is what I
+want:
+
+1a. Sites that are updated less frequently should be checked less
+    frequently.
+
+1b. Sites that are updated more frequently should be checked more
+    frequently.
+
+2.  Sites that are updated less frequently should appear higher
+    on the list when they ARE updated.
+
+3a. Sites that are updated every time the bot checks should be
+    marked as suspect.
+
+3b. The bot should be smart enough to recognize that single-line
+    edits (such as a random quote, typo fix, or system-generated
+    date) are not real updates. [It uses the normal "diff" command,
+    so I don't think it would be too hard to check for this.]
+    These sorts of changes should not be recorded and should not
+    trigger suspicion.
+
+    (Actually, it may be that if 3b is taken care of, 3a goes away)
+
+4. Sites that cannot be reached should not be checked at all, and
+   there should be a report of these "dead" sites available.
+
+5. All this status info needs to be stored in the database somehow.
+
+
+
+----
+
+This effort is part of the larger LinkwatcherRevival.

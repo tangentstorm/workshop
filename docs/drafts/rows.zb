@@ -1,0 +1,27 @@
+<html>
+<head>
+<title>rows in table: {:table:}</title>
+</head>
+<body>
+
+<h1>rows in table: {:table:}</h1>
+
+<table>
+<tr>
+* for cols:
+    <th>{:col:}</th>
+</tr>
+
+* for rows:
+    <tr>
+    * for vals:
+        <td>{:val:}</td>
+    </tr>
+</table>    
+
+</table>    
+
+<p><a href="tracker.app?action=new&amp;table={:table:}">add new row</a></p>
+
+</body>
+</html>

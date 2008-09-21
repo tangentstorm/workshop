@@ -1,0 +1,21 @@
+<html>
+<head>
+<title>table list</title>
+</head>
+<body>
+
+<h1>table list:</h1>
+  
+* for tables:
+  * head:
+    <ul>
+  * body:
+     <li><a href="tracker.app?action=rows&amp;table={:table:}">{:table:}</a></li>
+  * foot:
+    </ul>
+* none:
+  no tables.
+    
+
+</body>
+</html>

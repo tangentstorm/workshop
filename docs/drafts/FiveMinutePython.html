@@ -1,0 +1,170 @@
+<html>
+<head>
+<title> 5 minute python introduction</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: needs formatting</em></p>
+
+<hr>
+<pre>
+
+Here's my 5-minute python introduction:
+
+Python is a cross-platform, object-oriented, semi-compiled 
+programming language. It's very clean and easy to read and write, partially because it uses indentation as syntax.
+
+Here's a simple python program, that defines a class, instantiates 
+it, and calls a method:
+
+{{{
+class Hello:
+    def sayhi(self):
+        print "hello!"
+
+Hello().sayhi()
+}}}
+
+
+== general ==
+
+Has fewer control structures than some lanuages, but generally has everything you need. Basically:
+
+  * for/in ... else
+  * if ... elif ... else
+  * while ... else
+  * try ... except
+  * try ... finally
+  * assert
+  * def (defines a function)
+  * class (defines a class)
+  * break (for breaking out of loops)
+  * return (for returning values)
+  * yield (like return, but for [generators])
+
+examples:
+
+{{{
+for x in ["a", "b", "c"]:
+    print x
+
+for x in "abc":
+    print x # same as above
+
+for x in range(1, 10):
+    print x
+
+for x in somelist:
+    print x
+else:
+    print "list was empty"
+
+while 1:
+    pass # do nothing.. (infinite loop)
+
+if x==1:
+    print "x is 1"
+elif x==2:         # this is one way to do a case statement.
+    print "it's two!"
+else:
+    print "x is something else."
+
+
+def addOne(x):
+    return x + 1
+}}}
+
+'''Note the lack of curlies.''' This is the most controversial thing about python, and people either love it... Or they suck. :) Seriously, it takes some getting used to, but it soon becomes quite natural.
+
+
+== data types ==
+
+Everything is an object. Most things have methods. (even strings and numbers in the newest versions of python)
+
+A list is like a (reference to a) python array:
+
+{{{ 
+x = [1, 2, 3, 4, 5] 
+}}}
+
+
+A dictionary is like a perl hash:
+
+
+{{{
+x = {"a":"1", "b":2}
+for i in x.keys():
+    print i
+for i in x.values():
+    print i
+}}}
+
+Objects are fairly free form:
+
+{{{
+class X:
+    pass
+
+x = X()
+x.color = "red"
+}}}
+
+== slices ==
+
+Slices are used in python about as much as regexps are in perl. 
+They return parts of a sequence:
+
+{{{
+>>> x = "abcdefg"
+>>> x[0]
+'a'
+>>> x[4:-1]
+'ef'
+>>> x = ["a", "b", "c", "d"]
+>>> x[:2]
+['a', 'b']
+}}}
+
+== interpreter ==
+
+
+Python is compiled on the fly, then interpreted, just like perl,
+except python will leave precompiled versions of your files around
+for quicker loading.
+
+You can access the interpreter directly just by typing "python".
+You'll get a ">>>" prompt, which lets you run python stuff interactively.
+
+I probably use this to try something i think should work more than
+I use the docs. (which are also quite good)
+
+== modules ==
+
+{{{
+>>> import string
+>>> dir(string)
+### long list of all the functions in string module
+>>> print string.split.__doc__
+### docs for the string.split function
+}}}
+
+
+If for some reason, you change the source for the string module,
+you can do this to reload it while your program/interpreter session
+is running:
+
+{{{ 
+>>> reload(string) 
+}}}
+
+--MichalWallace
+
+See also: [http://www.sabren.net/articles/againstperl.php3 My case against perl]
+
+
+= Test Driven Development =
+
+Read [http://diveintopython.org/unit_testing/ Chapter 7] of [http://diveintopython.org/ Dive Into Python] for an awesome introduction and tutorial to the unittest module.
+</pre>
+</body>
+</html>

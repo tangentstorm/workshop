@@ -1,0 +1,257 @@
+
+"""
+ABSTRACTION: LET A MILLION WEB APPS BLOOM
+=========================================
+
+If you've seen one web app, you've seen them all.
+-------------------------------------------------
+
+Pretty much every web app follows the same formula.  There's some type
+of information that you want to track, and you usually have many many
+instances of that kind of data.  Here are just a few examples.
+
+  - products in an online store
+  - stories in a news site or blog
+  - bugs in a bug database
+  - comments on stories or bugs
+  - pages in a wiki
+
+These things usually wind up as rows in database somewhere or as
+individual files stored on disk.
+
+Most of the effort involved in building web apps is grunt work:
+loading and saving these things, and then displaying them in various
+ways. I say this is grunt work because it's work that has to be done
+over and over and over again when you write web apps.
+
+Not surprisingly, a lot of programmers have gotten fed up with doing
+this grunt work, and come up with frameworks and libraries that do
+that grunt work for you.
+
+Writing code that does the grunt work for you is called abstraction,
+and it's a good thing.  One thing that separates master developers
+from the beginners is the quality of their abstractions.
+
+A lot of web apps out there don't use much abstraction at all. For
+example, each page might talk directly to a database using the SQL
+language, and then display the results directly as HTML all in the
+same file.
+
+I think beginners do this because they're just learning, and it's easy
+to get results this way. However, pretty soon the beginners find
+themselves doing the same thing over and over, and this gets
+boring. So the beginners start to create their own abstractions.
+
+Creating abstractions is the first step in the journey from basic
+scripting to real software development.
+
+The problem is that the abstractions that beginning developers create
+are often not very good. Often a bad abstraction is better than
+<em>no</em> abstraction, but it can create its own problems later on.
+I learned this myself!
+
+Let's start with an example here. 
+
+As I said, many web apps involve storing data to a database. Often
+these databases are laid out in tables. So, for example, a blog system
+might have tables for things like:
+
+  - authors
+  - entries
+  - categories
+  - comments
+
+Let's use the entries table as an example, and actually create a
+database here, so we have something concrete to talk about.
+
+We'll create an entries table using a database system called
+sqlite. Actually we'll be using the python binding -- pysqlite, which
+is available for free from http://pysqlite.org
+
+All relational database libraries for python follow a convention
+defined here:
+
+    http://www.python.org/peps/pep-0249.html
+
+Since almost all the python database bindings work this way,
+this is our base level of abstraction for dealing with sqlite.
+(If you're coming from PHP or perl, you'll find that their low
+level interfaces have a similar)
+
+So, the first thing we need when using this python database API is a
+database connection object.
+
+This means we have to have a database somewhere.
+
+Sqlite lets us create an in memory database, without using a server or
+a file on disk.  (That's why we're using it!) So here's how we create
+an in memory database connection. What we're going to do here is
+create the in memory database, and then add a table to it.
+"""
+
+#@TODO: from pysqlite2 import dbapi2 as sqlite
+import sqlite
+
+def makeDatabase():
+    dbc = sqlite.connect(":memory:")
+
+    """
+    To create a table, we need to run the CREATE TABLE
+    SQL statement.
+    
+    In order to run SQL statements, we have to create what's called a
+    cursor object. Cursors are part of the python db api, and they are
+    also a standard standard concept no matter what language you're
+    using. One connection can have many, many cursors active, but
+    usually we'll just use one at a time. So:
+    """
+    cur = dbc.cursor()
+
+    """
+    Now we can use the cursor to run SQL statements. Again, we need to
+    run the CREATE TABLE statement.
+
+    Now, there is an ANSI standard for the SQL language, but few
+    database engines implement it exactly. The popular open source
+    databases like sqlite and MySQL and postgreSQL all have slight
+    differences in syntax. This is especially true for the CREATE
+    TABLE statement.
+    
+    These differences in syntax are the reason most beginner-level web
+    apps work with one particular database system and not the
+    others. As you're about to see, these syntax changes can be
+    ignored with proper abstraction, and you can write code that works
+    with a variety of databases.
+    
+    But first, here is the low level (no abstraction) version of how
+    we create a table in sqlite:
+    """
+
+    cur.execute(
+        """
+        CREATE TABLE entry  (
+            ID integer primary key,
+            title string,
+            content string )
+        """)
+
+    """
+    As you can see, the table has three columns.
+
+    The ID column is an integer (a number without a decimal point)
+    and it is the <em>primary key</em> for the table. This just
+    means that the ID is guaranteed to be unique for each row in
+    the table. This way, if two entries have the same title,
+    there's no problem. It's good practice to have a numeric
+    primary key like this in all your tables. As a special bonus,
+    sqlite will actually fill in the numbers for us, so we don't
+    have to keep track of them.
+
+    The other two columns are simple strings, which means
+    that you can put whatever data you want in them. (Really
+    sqlite lite lets you put whatever you want in any column
+    no matter what the official type is for that column,
+    but most databases don't, so it's good practice to
+    declare a type)
+
+    Here is an example of how the entry table might look
+    once it has data:
+
+    ID   title         content
+    ------------------------------------------------
+    1    an entry      something happened.
+    2    the sequel    something else happened.
+    ------------------------------------------------
+    
+    Now we have defined a database with a table. Right now,
+    the database only exists inside this makeDatabase()
+    function. In order to use the database again later
+    outside this function, we need to return the connection:
+    """
+    return dbc
+
+    
+
+"""
+Okay! So now we have a simple database factory to work with.
+Now let's fill it with data.
+
+===
+Note: Unit Tests
+
+Now, because I want the code in this book to be accurate, I'm
+going to include many <em>test cases</em> in the code. Thanks
+to these test cases, the electronic form of this book can
+actually run as a python program.
+
+One type of test case is a unit test, and that's what we'll
+use here. You'll quickly see that all unit tests follow the
+same pattern.
+
+UNIT TESTS:
+
+   - are defined as a subclass of unittest.TestCase
+   - have some number of test methods (often only one)
+   - may have a setUp method that is called before each test
+   - may have a tearDown method that is called after each test
+
+TEST METHODS:
+
+   - show how the code in question is meant to be used
+   - make assertions about the results of running the code
+
+Assertions are statements that mean "I, the programmer,
+believe this will be true. If it is not true, stop the
+program and print an error message so I can catch the
+mistake!"
+
+===
+
+"""
+
+
+
+# now we load the unittest module so our tests will run:
+import unittest
+
+# now we create a test case class. This one is called NoAbstractionTest:
+class NoAbstractionTest(unittest.TestCase):
+
+    # the setUp method gets called before each test
+    def setUp(self):
+        self.dbc = makeDatabase()        
+        self.api = NoAbstraction(self.dbc)
+
+    # here is the actual test (the important part!)
+    def test(self):
+        pass
+    
+
+class NoAbstraction(object):
+    def __init__(self, dbc):
+        pass
+
+
+if __name__=="__main__":
+    unittest.main()
+
+
+
+
+
+
+"""
+Once you install pysqlite, you can actually fire up the python
+interpreter (usually by typing "python" at the command prompt)
+When you see the ">>>" symbol below, this means that you should
+be able to type the same words into the python prompt and you
+should get the same results.
+
+Here is how 
+
+
+>>> import sqlite 
+>>> 
+>>> con = sqlite.connect(":memory:") 
+
+"""

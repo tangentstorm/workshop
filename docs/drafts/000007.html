@@ -1,0 +1,201 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [workshop-lite] rantelope day 003: the channel hierarchy
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:michal%40sabren.com">
+   <META NAME="robots" CONTENT="index,nofollow">
+   
+   <LINK REL="Previous"  HREF="000006.html">
+   <LINK REL="Next"  HREF="000008.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[workshop-lite] rantelope day 003: the channel hierarchy
+   </H1>
+    <B>Michal Wallace
+    </B> 
+    <A HREF="mailto:michal%40sabren.com"
+       TITLE="[workshop-lite] rantelope day 003: the channel hierarchy">michal@sabren.com
+       </A><BR>
+    <I>Fri, 27 Sep 2002 01:43:42 -0400 (Eastern Daylight Time)</I>
+    <P><UL>
+        <LI> Previous message: <A HREF="000006.html">[workshop-lite] rantelope: day 002
+</A></li>
+        <LI> Next message: <A HREF="000008.html">[workshop-lite] rantelope, day 4: the ransacker search engine
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7">[ date ]</a>
+              <a href="thread.html#7">[ thread ]</a>
+              <a href="subject.html#7">[ subject ]</a>
+              <a href="author.html#7">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>rantelope: day 003
+------------------
+
+Yes, I'm a day behind schedule. But this is the
+third development day, so it's still day 003. :)
+
+Today I implemented Yahoo!-style hierarchical channels. 
+Whether this is a good idea or not remains to be seen. :)
+
+As usual, the new code and live demo are up on:
+
+    <A HREF="http://www.rantelope.com/">http://www.rantelope.com/</A>
+
+
+==[ today's objective ]==
+
+I promised last time to make rantelope a true
+content management system, capable of managing an
+entire website, rather than just a blog. It's
+not there yet, but it's closer.
+
+I wanted hierarchy. I wanted to be able to maintain
+blogs, normal web pages, link directories, FAQs,
+and other content all through the same interface. 
+
+The trick was figuring out what that meant. :)
+I toyed around with a couple possibilities, and
+finally decided that my Channel object really
+ought to be a node in a tree. 
+
+So, the goal was to have let each Channel have
+some number of subchannels as well as some number
+of stories. That means a channel can take on any
+of several forms:
+ 
+  - blog: 1..* stories, 0 subchannels
+  - about page: 1 story, 0 subchannels
+  - link directory: 0..* stories, 0..* subchannels 
+
+I liked this idea, so that's what I built.
+
+==[ implementation ]==
+
+I ran in to a wall almost immediately. My &quot;sixthday&quot; 
+libraries handle relationships between classes 
+transparently: you can have many stories in a channel
+and the Clerk does all the magic of keeping the
+relationships up to date in the database.
+
+Unfortunately, I haven't gotten around to implementing
+hierarchical structures like Node, which wants to look
+like this:
+
+class Node:
+    parent = link(Node)
+    kids = linkset(Node)
+    # breadcrumb trail: top/node1/subnode/etc...
+    crumbs = linkset(Node)
+
+I can build objects like that just fine; the problem
+is persistence. Clerk sees the recursive structure 
+and freaks out. I'm going to fix that, but who knows
+how long that will take? So I wrote a kludge.
+
+One nice things about object-oriented languages is
+that you can encapsulate your messes. I knew how I
+wanted Node to look to the outside world, but it
+wouldn't yet work right out of the box. So I hacked
+together an implementation and then dressed it up
+to look nice, even though it wasn't.
+
+The end result is a file called Node.py, which you 
+can see in today's CVS if you're interested:
+
+  <A HREF="http://cvs.sabren.com/sixthdev/cvsweb.cgi/rantelope/Node.py?rev=1.1">http://cvs.sabren.com/sixthdev/cvsweb.cgi/rantelope/Node.py?rev=1.1</A>
+
+It's ugly and ought to be replaced, so I won't go into it. 
+But, once Node worked, I could make Channel a Node subclass,
+so now Channels have &quot;kids&quot; and &quot;parents&quot; and &quot;crumbs&quot;.
+
+Adding the interface was more or less trivial. When you
+view a channel, you now see the breadcrumb trail at the
+top, a list of subchannels in the middle, and a new
+&quot;add subchannel&quot; link. 
+
+I did have to introduce a few lines of cruft in the 
+RantelApp.show_channel() command. It's ugly, but I'll
+show it because it shows the kind of thing that's going
+on behind those generic_show() calls:
+
+    # note: strongbox.BoxView is a proxy class that gives
+    # Strongboxen a zebra-template-friendly dict interface:
+    def show_channel(self):
+        chan = self.clerk.fetch(Channel, long(self.input[&quot;ID&quot;])) 
+        chan.clerk = self.clerk 
+        model = {&quot;errors&quot;:[]} 
+        model.update(BoxView(chan)) 
+        model[&quot;kids&quot;]= [BoxView(k) for k in chan.kids] 
+        model[&quot;crumbs&quot;]= [BoxView(k) for k in chan.crumbs] 
+        print &gt;&gt; self, zebra.fetch(&quot;sho_channel&quot;, model) 
+
+
+Zebra expects a data model built from dictionaries and
+lists of dictionaries. To render a zebra template, you
+just make a dictionary with all the data the template
+needs, and call zebra.fetch()
+
+
+The only other thing I did was fix a bug with the filenames.
+Last time, I added code to force the RSS and html filenames 
+to end in &quot;.rss&quot; and &quot;.html&quot;. The looked lik this:
+
+   rssfile = attr(str, okay=lambda x: &quot;/&quot; not in x and x.endswith(&quot;.rss&quot;))
+   htmlfile = attr(str, okay=lambda x: &quot;/&quot; not in x and x.endswith(&quot;.html&quot;))
+
+I hinted that I could use a regular expression instead, and
+it turns out I had to. Otherwise an empty string wouldn't
+validate, and I wanted to let people leave these fields blank.
+It now says:
+
+     rssfile = attr(str, okay=&quot;([^/]+.rss|^$)&quot; )
+     htmlfile = attr(str, okay=&quot;([^/]+.html|^$)&quot; )
+
+... Which I think is a lot nicer.
+
+
+Anyway, that's day three in a nutshell. 
+
+Now that we've got the potential for channels within 
+channels, it makes sense to let those channels share 
+templates, so at some point we'll break the XSLT off 
+into its own class.
+
+Tomorrow, though, I'm dusting off my python-powered
+indexer, and giving rantelope a search engine.
+
+
+
+Sincerely,
+
+Michal J Wallace
+Sabren Enterprises, Inc.
+-------------------------------------
+contact: <A HREF="mailto:michal@sabren.com">michal@sabren.com</A>
+hosting: <A HREF="http://www.cornerhost.com/">http://www.cornerhost.com/</A>
+my site: <A HREF="http://www.sabren.net/">http://www.sabren.net/</A>
+--------------------------------------
+
+
+</PRE>
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI> Previous message: <A HREF="000006.html">[workshop-lite] rantelope: day 002
+</A></li>
+	<LI> Next message: <A HREF="000008.html">[workshop-lite] rantelope, day 4: the ransacker search engine
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#7">[ date ]</a>
+              <a href="thread.html#7">[ thread ]</a>
+              <a href="subject.html#7">[ subject ]</a>
+              <a href="author.html#7">[ author ]</a>
+         </LI>
+       </UL>
+</body></html>

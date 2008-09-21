@@ -1,0 +1,23 @@
+<html>
+<head>
+<title>list items</title>
+</head>
+<body>
+
+<h1>item list:</h1>
+  
+* for items:
+  * head:
+    <ul>
+  * body:
+     <li><a href="tracker.app?action=show&amp;ID={:ID:}">{:name:}</a></li>
+  * foot:
+    </ul>
+* none:
+  no items.
+    
+
+<p><a href="tracker.app?action=make">add item</a></p>
+
+</body>
+</html>

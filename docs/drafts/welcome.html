@@ -1,0 +1,217 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>webAppWorkshop</title>
+<link rel="stylesheet" href="/workshop.css" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head>
+
+<body>
+
+<div id="navbar">
+<img src="webappworkshop.png" alt="webAppWorkshop" width="320" height="55" />
+</div>
+
+<div id="content">
+
+<h1>Learn to Make Web Apps in Python!</h1>
+
+
+<h2>quick overview</h2>
+
+<p>The workshop architecture is a collection of modules that can 
+be used independently.</p>
+
+<h3>platonic components</h3>  
+
+<p>The word platonic is used in the sense of a &quot;platonic ideal&quot;: 
+platonic apps are applications decoupled from any interface whatsoever. 
+This means you can <strong>reuse components in different apps</strong> - 
+even web services or GUI apps.</p>
+
+<p>platonic was actually prototyped in a perl application
+done for one of those giant atlanta-based beverage companies
+back in 2004. In 2005, the python libraries were extracted as I 
+refactored the old sixthday stuff in the cornerhost control 
+panel (&quot;cornerops&quot;) using the ideas from the perl project...</p>
+
+<p>Therefore, cornerops is currently the only platonic web
+app written in python. Most of the paid work in this
+framework would be for cornerops / versionops (for
+versionhost) and duckbill (a billing system).  However,
+these are all fairly huge projects and not open source (at
+least for now)...</p>
+
+<p>So, in order to let people play around with the code, we
+need an open source app. There are several planned, but all
+of them will be based on a simple application called amoeba.</p>
+
+
+<h2>amoeba and trailblazer</h2>
+
+<p>The flagship program for this architecture is called
+amoeba. It is sort of a cross between a wiki and a
+relational database, and is based around an <a
+href="http://www.xml.com/pub/a/2001/01/24/rdf.html">RDF
+model</a>.</p>
+
+<p>Basically amoeba is what ties platonic to the web.  It's
+both a generic (but useful!) web app and a <a
+href="http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm">RESTful</a>
+web service.</p>
+
+<p>
+Amoeba is the proto-app: when you go to make a platonic web
+app, you should instantiate an amoeba, which you can then
+extend with your own features through the miracle of <a
+href="http://en.wikipedia.org/wiki/Object_composition">object
+composition</a>. :)</p>
+
+<p>You can watch an <a
+href="http://platonicamoeba.com/demo/200407/">early video
+demo</a> of amoeba (macromedia flash with sound) if you
+want to see what amoeba looks like.</p>
+
+<p>Unfortunately, amoeba was written as a sixthday app (no
+unit tests) but will soon be rewritten as a platonic web
+app using a narrative programming tool called trailblazer.</p>
+
+<p>What trailblazer does is allow you to see the program
+being built as you read, so that you aren't overwhelmed 
+with trying to understand a complete design, but rather
+can see it evolve step by step.</p>
+
+<p>The earlier tutorials below also use a narrative style,
+but were written before trailblazer, and so aren't actual
+running programs.</p>
+
+<h2>browse the code</h2>
+
+<p>The <a href="http://webappworkshop.com/pydoc/">pydoc
+pages</a> were generated 0913.2005 from the latest version
+of the modules</p> 
+
+
+<p>cvs browser is <a href="https://sixthdev.versionhost.com/viewcvs.cgi/">here</a>.
+a lot of that stuff isn't web-related, though, so here's the short list:</p>
+
+<ul>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/platonic/">platonic</a> (new framework)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/sixthday/">sixthday</a> (old framework)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/weblib/">weblib</a> (simple request/response stuff)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/strongbox/">strongbox</a> (data objects)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/storage/">storage</a> (tabular storage)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/arlo/">arlo</a> (O-R mapping)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/zebra/">zebra</a> (templates)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/handy/">handy</a> (misc utilities)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/pytypes/">pytypes</a> (old Date, FixedPoint, etc classes)</li>
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/ransacker/">ransacker</a> (search engine)</li>
+
+<li><a href="https://sixthdev.versionhost.com/viewcvs.cgi/rantelope/">rantelope</a></li>
+</ul>
+
+
+<p>See <a href="old/SettingUpShop.html">setting up shop</a> for how to check out the code</p>
+
+<h2>basic lessons</h2>
+
+<p><strong>Sep 13, 2005:</strong> these lessons were written
+in May of 2002. Except for the last one, these describe very 
+basic stuff that hasn't changed.</p>
+
+<ul>
+<li><a href="old/000000.html">&quot;Hello, %s!&quot;</a> - simple weblib usage</li>
+<li><a href="old/000001.html">The Spec</a> - cornerhost control panel overview </li>
+<li><a href="old/000002.html">Data objects</a> - basic python class usage</li>
+<li><a href="old/000003.html">Strongbox</a> - more on the control panel,
+     plus  how we really do data objects</li>
+<li><a href="old/000004.html">App and WikiApp</a> <em>(old school)</em>
+  this talks about an older web framework called <code>sixthday</code>, which has 
+  been discarded in favor of the more flexible and testable 
+  <code>platonic</code>.</li>
+</ul>
+
+<h2>project: rantelope</h2>
+
+<p><strong>Sep 13, 2005:</strong> rantelope is a content
+management system. In the simplest case, it works as a
+blogging tool like movable type or wordpress. These lessons
+were written in September 2002 in a one week sprint when the
+blogging features were created, and describe the old
+sixthday approach. As such, they are out of date and need to
+be reworked.</p>
+
+<ul>
+<li><a href="old/000005.html">Channels, Stories, and Raw RSS</a></li>
+<li><a href="old/000006.html">RSS-to-HTML with XSLT Templates</a></li>
+<li><a href="old/000007.html">Yahoo!-style Hierarchies</a></li>
+<li><a href="old/000008.html">The Ransacker Search Engine</a></li>
+<li><a href="old/000009.html">Comment system and next steps</a></li>
+</ul>
+
+<h2>other docs</h2>
+
+<p>These were pages from an old wiki that used to be here.
+They're <em>mostly</em> up to date as of september 2005</p>
+
+<ul>
+<li><a href="old/FiveMinutePython.html">basic intro to python</a></li>
+<li><a href="old/CodingStandards.html">coding standards</a></li>
+<li><a href="old/SettingUpShop.html">setting things up for using the framework</a></li>
+<li><a href="old/strongbox.html">strongbox documentation</a></li>
+<li><a href="old/storage-where.html">where-clauses in storage/arlo</a></li>
+<li><a href="old/weblib.html">weblib - low level request/response/session library</a></li>
+</ul>
+
+
+<h2>historical</h2>
+
+<ul>
+<li><a href="old/sixthday.html">sixthday</a> was how apps were
+structured before <code>platonic</code>. Sixthday was fun but
+it was hard to write tests for sixthday apps. Platonic solved
+the testing problem, so sixthday went out the door. However,
+many of the notes in this document still apply to platonic.</li>
+
+<li><a href="old/strongbox-idea.html">strongbox idea</a> -
+this was an early attempt to gather my ideas for what would
+become strongbox</li>
+
+<li><a href="old/zdc.html">zdc</a> was an early data object
+concept. the downside was that each instance  was tied to a
+database, so you couldn't even run the tests without connecting
+to MySQL. zdc was replaced by <code>strongbox</code>, 
+<code>arlo</code>, and <code>storage</code>.</li>
+</ul>
+
+<h2>the app list</h2>
+
+<p>Several apps have been written with this framework:</p>
+
+<p>These three are the most advanced, and in constant use:</p>
+
+<ul>
+<li>the <a href="http://cornerhost.com/">cornerhost</a> control panel</li>
+<li>the <a href="http://versionhost.com/">versionhost</a> control panel</li>
+<li><a href="old/duckbill.html">duckbill</a>, the billing system used at cornerhost/versionhost</li>
+</ul>
+
+<p>These haven't been worked out completely</p>
+
+<ul>
+<li>amoeba - sort of like a wiki crossed with a database</li>
+<li><a href="http://rantelope.com/">rantelope</a> 
+    - the content management system mentioned above</li>
+<li>planaconda - a project management tool</li>
+<li>buggernaut - a bug tracking system</li>
+<li>solomon - a knowledge base / customer support system</li>
+<li>zikeshop - this was a shopping cart system. <em>currently suffering bit rot</em> </li>
+<li><a href="http://linkwatcher.com/">linkwatcher</a> - a website 
+    that monitors other sites for changes
+    (some of this is still old php stuff)</li>
+<li><a href="http://letsbank.org/">letsbank</a> - 
+    an alternative currency banking system for communities</li>
+</ul>
+</div>
+
+</body>
+</html>

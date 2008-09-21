@@ -1,0 +1,7 @@
+
+no numbers until i get the outline finalized :)
+
+- abstraction [storage]
+- generic tracker app [platonic]
+- univseral backend [nodak/graph]
+- universal frontend [amoeba]

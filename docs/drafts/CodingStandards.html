@@ -1,0 +1,193 @@
+<html>
+<head>
+<title>Coding Standards</title>
+</head>
+<body>
+
+<p><em>STATUS: current as of 9/13/2005</em></p>
+
+<h1>Coding Standards</h1>
+
+<p> These are just some guidelines I've been trying to
+follow for this codebase since it started several years
+ago. - Michal</p>
+
+
+<h1>Languages</h1>
+
+<p>We use python almost exclusively. There are many reasons for
+this, but the main ones are the short learning curve,
+restricted execution support, and general clarity of python
+code.</p>
+
+
+<h1>General Style</h1>
+
+
+<h2>the basics</h2>
+
+<p> (unless there's a real good reason not to - eg,
+modifying or extending someone else's code)</p>
+
+<ul>
+<li>use cvs</li>
+<li>create test cases, and make sure everything passes before 
+   you check code in to CVS [see testing, below] </li>
+<li>one statement per line </li>
+<li>comment heavily. In python, use """docstrings""" docstrings look like this:</li>
+</ul>
+
+Note: docstrings look like this:
+<pre>
+<strong>def good():
+   """
+   this is a nice docstring
+   """</strong>
+
+def bad():
+   """this is ugly!"""
+</pre>
+
+<ul>
+<li>better yet, write readable code!</li>
+<li>indent 4 spaces. no tabs.</li>
+<li>put 2 blank linkes between method / function defs </li>
+<li>If non-python code uses curly braces, put the curlies on their own lines, or put the top curlie on the same line as the if/loop/whatever statment. </li>
+
+<li>In general, optimize code for readability over
+performance. If performance is crucial, and must be attained
+at the cost of clarity, comment heavily - even to the extent
+of several paragraphs per line of code, if necessary.</li>
+</ul>
+
+<h2>capitalization / punctuation</h2>
+
+<ul>
+<li>ClassName </li>
+<li>instanceName / variableName </li>
+<li>CONSTANT / GLOBAL</li>
+<li>instance.methodName() </li>
+<li>instance.propertyName </li>
+<li>_protectedMember </li>
+<li>__privateMember (python mangles this with classname) </li>
+<li>SELECT * FROM table WHERE x=1 (but: don't use SQL, use the storage module)</li>
+</ul>
+
+
+<h2>avoid:</h2>
+
+<p>avoid names_like_this (except for get_, set_, test_, etc)
+<em>(2005: i've kind of drifted on this one.)</em>
+</p>
+
+
+<h2>variable naming conventions</h2>
+
+<ul>
+<li>dbc - database connection</li>
+<li>cur - database cursor </li>
+<li>clerk - <code>arlo.Clerk</code> instance</li>
+
+<li>sql - string containing a sql statement. Always use this
+if you're building a sql statement. eg, blah(sql) rather
+than blah("select" + fields + " from " + table). This makes
+debugging easier, especially on the web. ''(but again, 
+<em>dont use SQL!!!</em>)</li>
+</ul>
+
+
+<p>Generic variables. (Only if there's not a more obvious/specific variable name):</p>
+
+<ul>
+<li>i - generic index in a range loop. eg, for i in range(10) </li>
+<li>j - same as above, but for nested loops </li>
+<li>k,v - key, value </li>
+<li>**kw - keyword argument catch-all. eg: def f(x, y=2, **kw) ... </li>
+<li>item - generic index in a list loop.  ("for item in whatever:")</li>
+</ul>
+
+<h2>databases</h2>
+
+
+
+<ul>
+<li>Tables that contain application data should have a numeric, primary key called ID. </li>
+<li>ID should be auto_incremented by the database software</li>
+
+<li>For 1:1 IS-A relationships, the subclass's table should
+have the same ID as the parent class. (eg,
+class.ID=subclass.ID) <em>(2005: not sure on this... IS-A is
+very rare anyway)</em></li>
+
+<li>Reference tables should have an ID field like the above,
+except for tables mapping alphanumeric codes to
+values. These tables should use "CD" for the code
+field. (eg, "SELECT ID FROM fnorb" but "SELECT state FROM
+ref_states WHERE CD='TX'")</li>
+
+<li>When using foriegn keys, use the tableID/tableCD
+style. If a table has more than one reference to another
+table, prefix it with a descriptive name and an underscore,
+eg: manager_employeeID, assistant_employeeID.</li>
+
+<li>table names should be in the form: prefix_noun for
+normal tables, or prefix_noun_noun for junction
+tables. Prefix should be a 2 to 4 character string grouping
+the tables (eg: "ref" or "iso" for reference tables, "lnk"
+for linkwatcher, "rnt" for rantelope, etc)</li>
+</ul>
+
+
+<h2>Testing</h2>
+
+<p>
+We're big on unit testing. Every class should have at least
+one test case. Probably quite a few. When writing programs,
+code the unit test first.</p>
+
+<p>
+We use an open source python testing tool called
+<a href="http://pyunit.sourceforge.net/">PyUnit</a>. 
+PyUnit is now part of the standard python distribution,
+so if you have ptyhon you already have it. PyUnit allows 
+you to build test cases and compile them into test suites. 
+We have some standards:
+</p>
+
+<p><em>(2005: most of the older code doesn't reflect these standards yet</em></p>
+
+<ul>
+<li>for every package, have a subdirectory called test</li>
+<li>./test contains a variety of *Test.py files</li>
+<li>run <code>snake.py test</code> to run the tests... (<em>sdunit for older modules</em>))</li>
+
+<li>also use <code>test_xxxx</code> for all test names so each test file works with the default unittest configuration</li>
+</ul>
+
+<p>include this code at the bottom of each test file
+so it can be run directly without need for snake.py</p>:
+
+<pre>
+if __name__=="__main__":
+    unittest.main()
+</pre>
+
+<p>
+<strong>IMPORTANT: TESTS SHOULD NOT CONNECT TO A DATABASE!</strong>
+That's what <code>arlo.MockClerk</code> is there for.</p>
+
+<p>It is also important to stick to this standard for the
+purposes of a nightly distribution-bundling mechanism (STILL
+not implemented) that will make the latest CVS code
+available in a developer's tarball.</p>
+
+<h2>doctests</h2>
+
+<p>Doctests also run through snake.py and live in the ./spec
+directory... These are XHTML files with embedded 
+<a href="http://docs.python.org/lib/module-doctest.html">doctest</a>
+transcripts.</p>
+
+
+</body>
+</html>

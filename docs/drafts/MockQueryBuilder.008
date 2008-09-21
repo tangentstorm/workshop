@@ -1,0 +1,100 @@
+= MockQueryBuilder =
+
+== Summary ==
+
+This is my attempt at building a QueryBuilder that will work against a non-SQL database.  The ["storage"] module comes with the MockStorage implementation, providing a basic dictionary database.  It is used only in testing.
+
+[http://techno-weenie.com.mn.sabren.com/ex/MockStorage.py.txt Download MockStorage.py]
+[http://techno-weenie.com.mn.sabren.com/ex/MockStorageTest.py.txt Download MockStorageTest.py]
+
+This isn't exactly meant for real use.  But, the storage unittests all derive from the MockStorageTest, so an implementation of the QueryBuilder was needed.
+
+== Matching Rows ==
+
+I had to change the method signature for one method, ''match'':
+{{{
+MockStorage.match(table, **where)
+}}}
+becomes
+{{{
+MockStorage.match(table, where=None)
+}}}
+First, leaving out the where parameter will select all rows, just like in the original implementation.  But, the syntax for matching against multiple rows has changed.
+
+To select something the old way, you used:
+{{{
+>>> store = MockStorage()
+# populate database
+>>> rows = store.match("tablename", name="Fred")
+}}}
+
+Now, with the QueryBuilder:
+(''MockStorage.q'' is an empty instance of the QueryBuilder)
+{{{
+>>> store = MockStorage()
+# populate database
+>>> rows = store.match("tablename", store.q.tablename.name == "Fred")
+}}}
+
+== Deleting Rows ==
+Deleting rows has been enhanced.  It still takes the old method:
+{{{
+>>> store.delete("tablename", 1)
+}}}
+This basically maps to:
+{{{
+>>> store.delete("tablename", store.q.tablename.ID==1)
+}}}
+
+But, you can now do something like:
+
+{{{
+>>> store.delete("users", store.q.users.groupID==5)
+}}}
+
+== How It's Done ==
+Instead of returning a WHERE statement, it returns a dictionary with three entries, the original value (property), the value to match against (value), and the operation to match with.
+
+Here's the method in MockStorage.py that deals with that part:
+{{{
+    def _dictmatch(self, pattern, subject):
+        (op, prop, val) = (pattern["operation"], pattern["property"], pattern["value"])
+        # get the property value to check
+        # take the value after the right-most period
+        if '.' in prop: prop = prop[prop.rindex('.')+1:]
+        p = subject[prop]
+        # perform the operation from the pattern against the value
+        try:
+            res = getattr(str(p).lower(), op)(str(val).lower())
+            # str.index returns 0 if a match is found in the first character, so return 1
+            if op == 'index': return 1
+            return res
+        except ValueError:
+            # str.index raises ValueError if no match is found, return 0
+            return 0
+}}}
+
+Let's break it down:
+
+{{{
+if '.' in prop: prop = prop[prop.rindex('.')+1:]
+p = subject[prop]
+}}}
+It needs to get the value to match from the row (subject).  If there's a '.' in the name (such as 'table.field'), then we only want the field name.
+
+{{{
+res = getattr(str(p).lower(), op)(str(val).lower())
+}}}
+Now, we get a reference to the operation (''str.__eq__'' for equality, ''str.__ne__'' for not equal, ''str.startswith'', etc).  Then, we compare it to the value and get a result back.
+
+All the comparison methods return 1 for true and 0 for false, except for ''str.index'' (which is called for ''QueryBuilder.contains()'').  If anything is returned, that means there's a match so it returns one.  However, if no match is found, a ''ValueError'' is raised, and 0 is returned.
+
+== Problems ==
+
+  * First, I cannot figure out how to get the & and | queries to work.  So, the MockQueryBuilder example isn't any more functional than the previous version.
+  * I'm pretty sure the way I'm returning dictionaries for the comparison magic variables could be improved.
+  * ''store.q.tablename.fieldname'' seems like a lot of typing, when all you needed before was just ''fieldname''
+
+Comments and/or ideas are welcome.
+
+-- RickOlson

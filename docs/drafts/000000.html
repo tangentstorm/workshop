@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+<title>workshop lesson: &quot;hello %s!&quot;</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: accurate. weblib hasn't changed at
+all. however: platonic+wsgi+rest would be a much better
+first lesson</em></p>
+
+
+<h1>lesson 00: &quot;hello %s!&quot;</h1>
+
+    <p>Michal Wallace</p>
+    <I>Sat, 4 May 2002 23:28:43 -0400 (Eastern Daylight Time)</I>
+
+
+<h2>Hello, World!</h2>
+
+<p>
+The traditonal introduction to a computer language is the
+&quot;Hello, World!&quot; program. In python, it's a
+one-liner:</p>
+
+
+<pre>
+print &quot;hello, world!&quot;
+</pre>
+
+<p>Easy, huh? If you load up a python interpreter and type
+that line, it'll print &quot;hello, world!&quot; to the
+screen.</p>
+
+<h2>The Response Object</h2>
+
+<p>
+Web apps don't print their output to a screen, but send it
+across the internet. For this reason (and others I'll go
+into later on), we redirect the output to a response
+object. In the framework that I use, this object is called
+RES:</p>
+
+
+<pre>
+print &gt;&gt; RES, &quot;hello, world!&quot;
+</pre>
+
+
+<p>That's it! Our first web application!</p>
+
+
+<p>So how can we see it work?</p>
+
+
+<p>To run this on a cornerhost server, put it in a text file
+with the extension &quot;.app&quot;. Call this one
+<code>hello.app</code> and upload it to your account.</p>
+
+<p>
+Now load it in your browser as if it were a normal web page.
+If all goes well, you should see:
+</p>
+
+<pre>
+   hello, world!
+</pre>
+
+<p>
+If you get an error message, double check that you have the
+filename correct and that the file contains no leading tabs
+or spaces - python has very strict rules about whitespace.
+</p>
+
+<h2>Hello, NAME!</h2>
+
+<p>
+Let's personalize our greeting a bit. Python lets us insert
+a variable (a defined value) into our output by using the
+percent sign:</p>
+
+<pre>
+name = &quot;Orville&quot;
+print &gt;&gt; RES, &quot;hello, %s!&quot; % name
+</pre>
+
+<p>
+If you upload this script and load it in the browser, the
+result should be:</p>
+
+<pre>
+   hello, Orville!
+</pre>
+
+<h2>The Request Object</h2>
+
+<p>
+Of course, most of the people using your app won't be named
+Orville. One way of passing a name into our app would be to
+include it in the query string:
+</p>
+
+
+<pre>
+   http:// ... /hello.app?name=Gomer
+</pre>
+
+
+<p>
+We can read the query string with the REQ (Request) object:
+</p>
+
+<pre>
+    name = REQ.get(&quot;name&quot;)
+</pre>
+
+<p>Better yet, we can provide a default:</p>
+
+<pre>
+  name = REQ.get(&quot;name&quot;, &quot;whoever you are&quot;)
+  print &gt;&gt; RES, &quot;hello, %s!&quot; % name
+</pre>
+
+<p>Try running this with and without a
+&quot;?name=whatever&quot; appended to the url.</p>
+
+
+<h2>Adding a Form</h2>
+
+<p>
+But why settle for a default, when we can simply ask users
+what their names are? This next example uses the
+REQ.has_key() method to tell if a name has been passed
+in. If so, it says hello. If not, it shows an HTML form:
+</p>
+
+<pre>
+if REQ.has_key(&quot;name&quot;):
+    print &gt;&gt; RES, &quot;hello, %s!&quot; % REQ.get(&quot;name&quot;)
+else:
+    # notice the single quotes, to prevent conflict with HTML:
+    print &gt;&gt; RES, '&lt;form action=&quot;hello.app&quot; method=&quot;GET&quot;&gt;'
+    print &gt;&gt; RES, 'What is your name?'
+    print &gt;&gt; RES, '&lt;input type=&quot;text&quot; name=&quot;name&quot; value=&quot;&quot;&gt;'
+    print &gt;&gt; RES, '&lt;input type=&quot;submit&quot;&gt;'
+    print &gt;&gt; RES, '&lt;/form&gt;'
+</pre>
+
+
+<h2>Yuck!</h2>
+
+<p>
+There's nothing wrong with that code, but it sure isn't
+pretty.  If you wanted to make the form look nicer, you'd
+have to add a whole lot more of those &quot;print &gt;&gt;
+RES&quot; lines, and that would get old real fast.  Worse,
+it's hard to read and hard to maintain.
+</p>
+
+
+<p>
+In the next lesson, we'll look at a way of solving these
+problems by separating the logic of an app from its
+presentation.
+</p>
+
+
+-----
+
+(c)2002 sabren enterprises inc
+feel free to forward this to a friend!
+
+</pre>
+</body>
+</html>

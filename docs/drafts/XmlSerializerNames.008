@@ -1,0 +1,49 @@
+= Custom Element Names in XmlSerializer =
+
+The next step in XmlSerializer customization is configuring the element names.  This will allow us to map new classes to existing Xml formats, or just fine tune the schema of a new one.
+
+== Add the Xml Maps ==
+
+Again, we will modify the previous example and change only the Xml maps.  In addition to the ''__order__'' key, there are some new ones:
+{{{
+xmlserializer.addMapping(Publisher, {'__class__': {'__name__':'publisher'}})
+xmlserializer.addMapping(ComicBook, {'__class__': {'__name__':'comicbook'},
+                                     '__order__': ('title', 'publisher', 'issues')})
+xmlserializer.addMapping(Issue, {'__class__'  : {'__name__':'issue'},
+                                 '__order__'  : ('volume', 'number', 'releasedate')})
+}}}
+
+=== __class__ ===
+The ''__class__'' key sets the element name of the root element.  Note that if the class is included or linked to within another class, it assumes the property name of the parent class (look at the ComicBook &#187; Publisher relation).  Its value is set to another python dictionary for the ability to add other properties later.  It contains the ''__name__'' key, with the new name of the element as its value.
+
+=== Properties ===
+Note that each property may have an entry in the xml map.  If no entry for that element is given, it will be serialized using the default settings (an element with a name directly matching the property name).  It also has a dictionary for its value, just like the ''__class__'' key.
+
+While the ''name'' property contains a string for its ''__name__'' value, the linkset properties ''hobbies'' and ''subordinates'' have a tuple.  The tuple specifies the name of the containing element and each item element.
+
+== See the Results ==
+Here are the XML results:
+{{{
+<?xml version="1.0" ?>
+<comicbook>
+  <title>Amazing Spider-Man</title>
+  <publisher>
+    <name>Marvel</name>
+  </publisher>
+  <issues>
+    <issue>
+      <volume>1</volume>
+      <number>500</number>
+      <releasedate>2003-11-15T00:00:00-05:00</releasedate>
+    </issue>
+    <issue>
+      <volume>1</volume>
+      <number>501</number>
+      <releasedate>2003-12-16T00:00:00-05:00</releasedate>
+    </issue>
+  </issues>
+</comicbook>
+}}}
+
+== Attributes? ==
+Okay, so we can serialize to attributes all day long.  But, XML is more then that.  What about serializing as attributes?  XmlSerializerAttr

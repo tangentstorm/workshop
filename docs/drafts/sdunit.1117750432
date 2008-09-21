@@ -1,0 +1,26 @@
+= sdunit white paper =
+
+sdunit is the xUnit testing tool for sixthday. It's really just the standard pyUnit, plus a set of (questionable?) standards for testing.
+
+It's text-based, and when you run it, it looks something like this:
+
+{{{
+W:\zdc>sdunit
+** testing ObjectView:
+** testing Table: ....
+** testing Date: .....
+** testing LinkSet: ..
+** testing Connection: .
+** testing Record: ........
+** testing Functions: ...
+** testing RecordObject: .....
+** testing Object: ......
+** testing Junction: .
+** testing DBAPI2Driver: .
+** testing IdxDict: ......
+}}}
+
+
+== to-do ==
+
+  * Re-think the standards. Setting up test cases for these projects currently requires too much work. :)

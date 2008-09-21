@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="workshop.css"?>
+<trail>
+
+<title>WebApp : exposing features at urls</title>
+
+<p>Queries and Commmands correspond loosely to the 
+GET and POST methods in HTTP.</p>
+
+<todo>generic approach to error handling</todo>
+
+<p>For, queries, we want to run a function to 
+get our model and then format that data as 
+html:</p>
+
+<goal>mapping request variables to feature parameters</goal>
+
+<pre>
+import inspect
+
+class WebApp:
+</pre>
+
+
+<goal>expose Commands via the POST method</goal>
+
+<p>Commands correspond to the POST command.
+After a post, it makes sense to redirect to
+a new GET page, so that people can refresh
+their browsers or use the back button without
+reposting the form. So for commands, we need
+to know which page to redirect to. In this
+case we'll just send both back the list page:</p>
+
+<pre>
+    def POST(self, req, res, meth, next):
+        self.invoke(req, meth)
+        res.redirect("?action=%s" % next)
+</pre>
+
+
+<goal>expose Queries via the GET method</goal>
+
+<todo>decouple from zebra</todo>
+<pre>
+    def GET(self, req, res, meth, tile):
+        model = self.invoke(req, meth)
+        res.write(zebra.fetch(tile, model))
+</pre>
+
+<goal>dispatch based on ACTION parameter</goal>
+
+<todo>change this to dispatch based on the URL</todo>
+
+<pre>
+    def dispatch(self, req, res):
+        #@TODO: remove need for action. just use urls.
+        action = req.get("action", self.DEFAULT)
+        if action in self.COMMANDS:
+            meth, next = self.COMMANDS[action]
+            self.POST(req, res, meth, next)
+        elif action in self.QUERIES:
+            meth, tile = self.QUERIES[action]
+            self.GET(req, res, meth, tile)
+        else:
+            res.addHeader("Status", "404")
+            res.write('method "%s" not found' % action)
+            res.end()
+</pre>
+
+    <todo>make special a class variable...</todo>
+
+<pre>
+    special = {}
+
+    def invoke(self, req, meth):
+        argSpec, argVar, kwargVar, defaults = inspect.getargspec(meth)
+
+        methArgs = []
+        for item in argSpec:
+            #@TODO: make this generic:
+            if item in self.special.keys():
+                methArgs.append(self.special[store])
+            #@TODO: don't add this until we do fields.py
+            elif item == "REQ":
+                methArgs.append(req)
+            elif item in req.keys():
+                methArgs.append(req[item])
+            else:
+                raise TypeError("missing argument: %s" % item)
+        return meth(*methArgs)
+</pre>
+
+</trail>

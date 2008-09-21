@@ -1,0 +1,143 @@
+<html>
+<head>
+<title> setting up shop</title>
+</head>
+
+<p><em>status 0913.2005: need to mention snake.py... needs formatting</em></p>
+
+
+Here is how I set up a new development environment. This is
+already set up on all cornerhost servers, but you might want
+to run the latest version, or you might need your own
+weblib.cgi because you're using suEXEC.
+
+<hr/>
+<pre>
+
+
+First, I check out the modules. I run this under suEXEC, so I put the libraries in my home directory... If you're using apache and don't want to use suEXEC, you can choose to put it under ~/web/whatever instead (so apache doesn't need rights to your home directory)
+
+{{{
+% mkdir lib
+% cd lib
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev login
+(no password)
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co arlo
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co handy
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co pytypes
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co ransacker
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co sixthday
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co storage
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co strongbox
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co weblib
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co zebra
+% cvs -d:pserver:anonymous@sixthdev.versionhost.com:/cvs/sixthdev co sdunit
+}}}
+
+For apache, I then create a copy of weblib/adapters/weblib.cgi and
+put it somewhere under my website's document root. Then I add this
+to my .htaccess file:
+
+{{{
+Action webapp /path/to/weblib.cgi # relative to site's docroot
+AddHandler webapp .app            # preconfigured at cornerhost 
+}}}
+
+Of course, weblib.cgi is a normal cgi script and needs the proper permissions:
+
+{{{
+% chmod 755 weblib.cgi
+}}}
+
+I also need to '''edit weblib.cgi''' and change the sys.path line to
+include the full path to the "lib" directory I created, eg:
+
+{{{
+# in weblib.cgi:
+sys.path = ["/home/michal/lib"] + sys.path # or wherever you put "lib"
+}}}
+
+That's all you need to get things working, but since I work on the modules themselves, I add one other step.
+
+The ["sdunit"] package contains the sixthday unit-testing tools, for testing all modules. Since I work from the shell, I create a file called ~/bin/sdunit with the following command:
+
+{{{
+# contents of ~/bin/sdunit
+python ~/lib/sdunit/sdunit.py $1 $2 $3
+}}}
+
+And then run:
+
+{{{
+% chmod 700 ~/bin/sdunit
+}}}
+
+You can do this same thing from your home computer. For example, on windows I use the following sdunit.bat file:
+
+{{{
+@echo off
+c:\python22\python w:/lib/sdunit/sdunit.py %1 %2 %3
+}}}
+
+You can test sdunit by doing this:
+
+{{{
+% cd ~/lib/weblib # or wherever you put "lib"
+% sdunit
+-=-=-=-=-=-=-=-=-=-=+
+              Engine: ...........
+     OutputDecorator: ...
+         RequestData: .
+             Request: ......s
+            Response: .....
+                Sess: .......
+         SqlSessPool: s
+             Twisted:
+-=-=-=-=-=-=-=-=-=-=+
+}}}
+
+The dots indicate passing tests. "s" indicates a skipped (disabled)
+test. If any errors show up, you'll see them.
+
+I usually run sdunit every time I enter a new line of code -- or at
+the very least, once a minute or so. See TestDrivenDevelopment for
+more on this.
+
+=== fixing path errrors ===
+
+If you get an error message like:
+
+{{{
+-=-=-=-=-=-=-=-=-=-=+
+Traceback (most recent call last):
+  File "/home/michal/lib/sdunit/sdunit.py", line 80, in ?
+    if file.endswith("Test.py")]
+  File "/home/michal/lib/sdunit/sdunit.py", line 56, in runTest
+    exec "from spec.%sTest import %sTest; TC=%sTest" \
+  File "<string>", line 1, in ?
+'''ImportError: No module named spec.EngineTest'''
+}}}
+
+This means that python can't find the "spec" directory... You need to put "." on the path:
+
+{{{
+% export PYTHONPATH=~/lib:.
+}}}
+
+I usually put that "export" command in my ~/.bash_profile file so it runs every time I log in:
+
+{{{
+# in ~/.bash_profile for unix:
+export PYTHONPATH=~/lib:.
+}}}
+
+On windows, I have this in my autoexec.bat:
+
+{{{
+REM autoexec.bat for win32
+SET PYTHONPATH=w:\lib;.
+}}}
+
+</pre>
+</body>
+</html>

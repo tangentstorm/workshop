@@ -1,0 +1,293 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [workshop-lite] rantelope, day 4: the ransacker search engine
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:michal%40sabren.com">
+   <META NAME="robots" CONTENT="index,nofollow">
+   
+   <LINK REL="Previous"  HREF="000007.html">
+   <LINK REL="Next"  HREF="000009.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[workshop-lite] rantelope, day 4: the ransacker search engine
+   </H1>
+    <B>Michal Wallace
+    </B> 
+    <A HREF="mailto:michal%40sabren.com"
+       TITLE="[workshop-lite] rantelope, day 4: the ransacker search engine">michal@sabren.com
+       </A><BR>
+    <I>Sat, 28 Sep 2002 00:05:40 -0400 (Eastern Daylight Time)</I>
+    <P><UL>
+        <LI> Previous message: <A HREF="000007.html">[workshop-lite] rantelope day 003: the channel hierarchy
+</A></li>
+        <LI> Next message: <A HREF="000009.html">[workshop-lite] rantelope day 005: comment system and next steps
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#8">[ date ]</a>
+              <a href="thread.html#8">[ thread ]</a>
+              <a href="subject.html#8">[ subject ]</a>
+              <a href="author.html#8">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>rantelope: day 004
+---------------------------
+The Ransacker Search Engine
+---------------------------
+
+Today I implemented a search engine that will eventually
+tie in to Rantelope.
+
+There's no new demo today, but links to the code are at:
+
+    <A HREF="http://www.rantelope.com/">http://www.rantelope.com/</A>
+
+You also can now get the code via anonymous CVS:
+
+ cvs -d:pserver:<A HREF="mailto:anonymous@cvs.sabren.com">anonymous@cvs.sabren.com</A>:/cvs/sixthdev co MODULE
+
+Where MODULE is python module name:
+  (rantelope, ransacker, sixthday, storage, arlo, etc.)
+
+
+==[ today's objective ]==
+
+Two years ago, I wrote a search engine called ransacker, 
+and set it aside to work on other things. Now that 
+rantelope is here, I thought I'd hook the two together. 
+
+But the code was awful. Ransacker was always incredibly slow,
+so I did a bunch of tricks to optimize it. The result was an
+unreadable mess.
+
+So, today I rewrote it.
+
+==[ implementation ]==
+
+So far, the code we've been looking at is mostly simple 
+scripting of existing classes and objects. Since its 
+mostly front-end work, I don't worry too much about 
+testing.
+
+But today, I needed to build something useful, so I 
+started by writing a test case. It looked something
+like this:
+
+###
+import unittest
+from ransacker import MkIndex
+
+class MkIndexTest(unittest.TestCase):
+    def setUp(self):
+        self.idx = MkIndex()
+        self.idx.add(&quot;onedog&quot;, &quot;my dog has fleas&quot;)
+        self.idx.add(&quot;cathat&quot;, &quot;the cat in the hat&quot;)
+        self.idx.add(&quot;twodog&quot;, &quot;it's a dog eat dog world&quot;)
+    def check_match(self):
+        actual = self.idx.match('dog')
+        assert ('onedog' in actual) and ('twodog' in actual), \
+               &quot;match() doesn't find things: %s&quot; % str(actual)
+        assert actual == ('twodog', 'onedog'), \
+               &quot;match() doesn't use relevance: %s&quot; % str(actual)
+###      
+
+I have a program called 'sdunit' (sixthday unit tester) that
+runs tests like this for me, so all I had to do was save this
+into a new file called &quot;spec/MkIndexTest.py&quot; and type &quot;sdunit&quot;.
+
+Of course, it gave me a big nasty error message because this code
+uses something called an MkIndex, and I hadn't written that yet.
+But that's the point. Writing this test let me think about what
+I wanted the MkIndex interface to look like, BEFORE I wrote it.
+
+   - you add pages to the index
+   - later, you can get a ranked listing back for a
+     particular keyword.
+
+So if I indexed the three strings in the setUp() method,
+and then searched for &quot;dog&quot;, I should get the names of the
+last and first strings. The &quot;twodog&quot; string has the word
+&quot;dog&quot; twice, so it should get ranked higher.
+
+I called it MkIndex because I knew I would be using MetaKit:
+
+      <A HREF="http://www.equi4.com/metakit/python.html">http://www.equi4.com/metakit/python.html</A>
+
+MetaKit is a small embedded database system. I had considered 
+using it during the initial ransacker version, but never did.
+I had a hunch it would be a lot faster than the disk-based
+hash I used before.
+
+Adding a page looks something like this:
+
+   - Build a frequency chart for each word in a page, which
+     is actually quite easy if you have a dictionary data type:
+
+        def wordFreqs(text):
+            fd = {}
+            for word in text.split():
+                if fd.has_key(word):
+                    fd[word] = fd[word] + 1
+                else:
+                    fd[word] = 1
+            return fd
+
+   - For each unique word, add a [pagename, word, count] 
+     record to the database.
+
+
+So now we have an index. The match() routine just looks through
+the records for all pagenames that have that word, and returns
+them, sorted by the count.
+
+Turning that into code was just a matter of keeping the 
+metakit documentation handy. Pretty soon, I had it working.
+It was definitely cleaner than the old code, but would it
+be practical for actual use?
+
+::<i> THE PROFILER ::
+</I>
+Python has a built-in profiler module. A profiler is a tool that runs
+code and gives you statistics about which functions were called the
+most, and how long they took. It's a great tool for finding bottlnecks
+in code.
+
+I already had a profiling script for the old ransacker, so I
+figured it would make a good benchmarking tool. My test data
+was a single (long) page from <A HREF="http://www.robotwisdom.com/">http://www.robotwisdom.com/</A> . 
+According to the profiler, the old but optimized ransacker 
+took about a second to index it.
+
+Profiling code is easy:
+
+   # idx = my index object
+   import profile
+   mycode = 'idx.add(&quot;pass1&quot;, txt)'
+   profile.run(mycode)
+
+It prints a report with the total time and the function call statistics.
+
+Anyway, turns out new ransacker indexes the page in about 0.3 seconds.
+Still slow, but the old ugly code could hardly be called &quot;optimized&quot;
+anymore. :)
+
+But there were two problems:
+
+   1. So far, the metakit database was all in-memory, so
+      we hadn't dealt with IO yet.
+
+   2. Since each record stored the word and the name of the
+      page (which would be the URL in real life), and there's
+      a record for each page/word pair, the database was bound
+      to get HUGE.
+
+
+The first problem was easy. Just give metakit a filename. 
+I did it, and the database went to disk, and it didn't 
+hurt performance at all.
+
+To solve the second problem, I took a lesson from relational 
+database design, and assigned each word and page a numeric key.
+
+So the index now looks like this: [wordID, pageID, count]
+
+The old ransacker worked that way, too, so I based my IdMap 
+class on the old object. Both simply keep a disk-based hash
+that maps ID's to strings and vice versa. The code is
+simple, so I won't go into it here. It's in IdMap.py
+if you want to see it. Basically it works like this:
+
+   im = IdMap()
+   assert im[&quot;cat&quot;] == 1, &quot;should assign 1 to first word&quot;
+   assert im[&quot;dog&quot;] == 2, &quot;should assign 2 to second word, and so on&quot;
+   assert im[&quot;cat&quot;] == 1, &quot;should remember words already seen&quot;
+   assert im[1] == &quot;cat&quot;, &quot;the reverse works too&quot;
+
+To store wordID and pageID, I just asked for wordIDs[word] 
+or pageIDs[page] in the appropriate places. I expected this
+to add some overhead, but the speed stayed constant.
+
+Just for fun, I tried implementing IpMap in metakit. You can
+see my attempt in the &quot;AllMkIndex.py&quot; file. I abandoned it 
+pretty quick though: it sent the indexing time up to 12 
+seconds. It probably could be sped up by caching results,
+but I didn't think it was worth pursuing.
+
+
+==[ future directions ]==
+
+The new ransacker works, but it's hardly a full-featured 
+search engine. One nice thing about it is that you can 
+add pages to the index incrementally - like every time
+someone saves a new story. 
+
+It doesn't let you update an old page in the index yet,
+but this is extremely simple: just delete the old records
+associated with that page, and add some new ones.
+
+Also, the index itself isn't indexed. Metakit basically
+looks at every record every time you search for a word.
+That's part of metakit's design: rather than indexing it
+just tries to be really really fast at brute force 
+searching. Eventually, it might make more sense to store
+the table in MySQL, and add indexes to the wordID and 
+pageID columns.
+
+Complex searches don't work. You can only search for one
+word at a time. Boolean searches like &quot;cat AND dog&quot;,
+&quot;cat OR dog&quot;, and &quot;cat AND NOT dog&quot; should be implemented 
+by a higher level object, SearchEngine, that calls match() 
+for all search terms and returns the proper subset of
+results.
+
+Finally, getting back to our content mangement system; if
+rantelope is to use ransacker, there has to be a way for
+rantelope to return a specific page. That means having
+a unique URL for each topic. That's not implemented yet,
+but it should be tomorrow, because we're going to build a
+comments system. :)
+
+---
+
+PS: Tomorrow will be the last post out of me for about
+two weeks. As much as I'd like to work interrupted on
+rantelope and ransacker, I've got a hosting company 
+to run... My plan is to have a 5-day period like this
+one every couple weeks.
+
+As always, comments, questions, and suggestions on the
+code are welcome, and feel free to forward this to 
+a friend. :)
+
+
+Sincerely,
+
+Michal J Wallace
+Sabren Enterprises, Inc.
+-------------------------------------
+contact: <A HREF="mailto:michal@sabren.com">michal@sabren.com</A>
+hosting: <A HREF="http://www.cornerhost.com/">http://www.cornerhost.com/</A>
+my site: <A HREF="http://www.sabren.net/">http://www.sabren.net/</A>
+--------------------------------------
+
+
+</PRE>
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI> Previous message: <A HREF="000007.html">[workshop-lite] rantelope day 003: the channel hierarchy
+</A></li>
+	<LI> Next message: <A HREF="000009.html">[workshop-lite] rantelope day 005: comment system and next steps
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#8">[ date ]</a>
+              <a href="thread.html#8">[ thread ]</a>
+              <a href="subject.html#8">[ subject ]</a>
+              <a href="author.html#8">[ author ]</a>
+         </LI>
+       </UL>
+</body></html>

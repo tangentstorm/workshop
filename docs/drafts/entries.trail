@@ -1,0 +1,225 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="workshop.css"?>
+<trail>
+
+<title>entries: a naive implementation</title>
+
+<summary>
+In which we create simple blogging tool using plain old SQL.
+</summary>
+
+<goal>Define the Shape of the Data</goal>
+
+<p>In SQL, this is done with a create table statement.</p>
+
+<pre>
+CREATE TABLE entry (
+    ID INTEGER PRIMARY KEY,
+    posted datetime,
+    title text,
+    content text,    
+)
+</pre>
+
+<goal>Show an Empty Record List</goal>
+
+<pre>
+cur.execute("SELECT ID, posted, title, content FROM entry ORDER by posted")
+return Model({
+   "entries": [
+         {"ID":ID, "posted":posted, "title": title, "content": content}
+	 for (ID, posted, title, content) in cur.fetchall()]
+})
+</pre>
+
+
+<p>and to show it:</p>
+
+<pre><![CDATA[
+<html>
+<head>
+<title>my blog</title></title>
+</head>
+<body>
+<h1>my blog</h1>
+* exec:
+    prevdate = None
+
+* for series="entries":
+    * if posted  != prevdate:
+        <h2>{:posted:}</h2>
+        * exec:
+            prevdate = posted
+    <h3><a href="edit?ID={:ID:}">{:title:}</a></h3>
+    <div class="entry">{:content:}</div>
+</body>
+</html>
+]]>
+</pre>
+
+<todo>use reptile instead of zebra</todo>
+
+
+<goal>Create a Form for Adding Records</goal>
+
+<trail:blaze name="templates:entry-form.zb">
+<pre><![CDATA[
+<html>
+<head>
+<title>add entry</title></title>
+</head>
+<body>
+
+<h1>add new entry</h1>
+
+<a href=""></a>
+
+* for series="entries":
+    * if posted  != prevdate:
+        <h2>{:posted:}</h2>
+        * exec:
+            prevdate = posted
+    <h3>{:title:}</h3>
+    <div class="entry">{:content:}</div>
+</body>
+</html>
+]]>
+</pre>
+</trail:blaze>
+
+<goal>Save the Form Data</goal>
+
+<todo>move sqlEscape to own article... first part of storage</todo>
+
+<pre>
+# unravelled from MySQLStorage._toSQLString(self, val)
+def sqlEscapeValue(val):
+    asString = unicode(val)
+    splitQuotes = asString.split("'")
+    fixedQuotes =  "''".join(splitQuotes)
+    return "'%s'" % fixedQuotes
+
+def sqlValue(val):
+    if val is None:
+        return "NULL"
+    else:
+        return sqlEscapeValue(val)
+</pre>
+
+
+<p>To save our records, we'll use the <code>REPLACE INTO</code>
+statement. Not all databases support this and it may be 
+slightly slower than an INSERT or UPDATE statement but
+it simplifies our code here so we'll use it for now. 
+(Otherwise we'd have to write one version for INSERT 
+and another for UPDATE)</p>
+
+<todo>link to storage implementation of INSERT/UPDATE</todo>
+
+<pre>
+@command
+def saveEntry(ID, posted, title, content):
+    cur.execute(
+        """
+	REPLACE INTO entry (ID, posted, title, content) 
+	VALUES (%s, %s, %s, %s)
+	""" % (sqlValue(ID),
+               sqlValue(posted),
+               sqlValue(title), 
+               sqlValue(content)))
+</pre>
+
+<goal>Show/Edit a Record</goal>
+
+<todo>add goal vs task distinctions in trailblazer markup</todo>
+
+<task>making our form generic</task>
+
+<p>We could have two forms, but it's better to reuse the earlier form?
+This means we need to make the add page supply a real model:</p>
+
+<trail:replace name="templates:form.zb">
+<pre><![CDATA[
+<html>
+<head>
+<title>add/edit entry</title></title>
+</head>
+<body>
+* if ID:
+    <h1>edit entry</h1>
+* el:
+    <h1>add new entry</h1>
+
+<a href=""></a>
+
+* for series="entries":
+    * if posted  != prevdate:
+        <h2>{:posted:}</h2>
+        * exec:
+            prevdate = posted
+    <h3>{:title:}</h3>
+    <div class="entry">{:content:}</div>
+</body>
+</html>
+]]>
+</pre>
+</trail:replace>
+
+<task>model for a new entry</task>
+
+<pre>
+@query
+def create():
+    return Model(
+        ID=None,
+        posted=None,
+        title='',
+        content='')
+</pre>
+
+<task>model for existing entry</task>
+
+<todo>@input and @output rather than @query and @command?</todo>
+
+<pre>
+@query
+def retrieve(ID, cur=internal):
+    cur.execute(
+        """
+	SELECT ID, posted, title, content 
+        FROM entry
+        WHERE ID=
+        """)
+    if cur.rowcount==1:
+        ID, posted, title, content = cur.fetchone()
+        return Model(
+            ID=ID,
+            posted=posted,
+            title=title,
+            content=content)
+    else:
+        raise LookupError("%s entry records matched ID=%s" 
+	                  %(cur.rowcount, ID))
+</pre>
+
+<todo>someone could send you to a link here and the error
+message could fire off an xss attack depending on value of ID :)</todo>
+
+
+<goal>Delete a Record</goal>
+
+<todo>some parameters (STOR, etc) are internal to the 
+system and therefore should never be exposed. Maybe
+something like this:
+
+@command
+def save(ID, value, cur=internal)
+</todo>
+
+<pre>
+@command
+def delete(ID, cur=internal):
+    cur.execute("DELETE FROM entry WHERE ID=%s" % sqlValue(ID))
+</pre>
+
+</trail>

@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="workshop.css"?>
+<trail>
+
+<title>The Python Database API</title>
+
+<summary>
+The Python Database API is a standard, low-level interface for dealing 
+with SQL databases in python.
+</summary>
+
+<p>The <a href="http://www.python.org/peps/pep-0249.html">python
+database API</a> is a standard interface for talking to SQL
+databases.</p>
+
+<p>SQL is a structured query language that has been around
+for several decades. It is the standard language for dealing
+with relational databases.</p>
+
+<goal>Connect to the Database</goal>
+
+<pre><![CDATA[
+>>> import sqlite
+>>> dbc = sqlite.connect(":memory:")
+]]></pre>
+
+<goal>Create a cursor</goal>
+
+<pre><![CDATA[
+>>> cur = dbc.cursor()
+]]></pre>
+
+<goal>Execute a Query or Command</goal>
+
+<p>Yep, queries and commands again.</p>
+
+<pre><![CDATA[
+>>> cur.execute("CREATE TABLE names (ID INTEGER PRIMARY KEY, name TEXT)")
+>>> cur.execute("INSERT INTO names (name) VALUES ('fred')")
+>>> cur.execute("INSERT INTO names (name) VALUES ('wanda')")
+]]></pre>
+
+<p>Queries work the same way:</p>
+
+<pre><![CDATA[
+>>> cur.execute("SELECT * FROM names")
+]]></pre>
+
+<goal>Retrieve the Results of a Query</goal>
+
+<pre><![CDATA[
+>>> cur.fetchall()
+[(1, 'fred'), (2, 'wanda')]
+]]></pre>
+
+
+</trail>

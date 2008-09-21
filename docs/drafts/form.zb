@@ -1,0 +1,25 @@
+<html>
+<head>
+<title>edit record</title>
+</head>
+<body>
+
+<form action="tracker.app" method="POST">
+    * if new:
+        <h1>new record in table {:table:}</h1>
+    * el:
+        <h1>edit record in table {:table:}</h1> 
+
+* for fields:
+    <p>{:name:}:<br/>
+    <textarea name="{:name:}">{:value:}</textarea>
+    </p>
+
+
+<input type="hidden" name="table" value="{:table:}">
+<p><input type="submit" name="action" value="save"></p>
+</form>
+
+
+</body>
+</html>

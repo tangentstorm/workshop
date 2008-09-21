@@ -1,0 +1,14 @@
+Buggernaut is the sixthday issue tracking system.
+
+Requirements (very rough):
+
+  * hierarchical trees of goals 
+  * time estimates and actual times for each goal
+  * goals are color coded by priority
+  * assign tasks to multiple people
+  * assign goals to arbitrary categories
+
+Much of this is already done in straight CGI...
+
+
+

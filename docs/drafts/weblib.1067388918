@@ -1,0 +1,33 @@
+= weblib overview =
+
+=== summary ===
+
+The weblib package provides objects for creating dynamic web pages. These objects borrow the best ideas from technologies such as Active Server Pages, PHPLIB, and Fusebox. 
+
+Specifically, weblib provides the following:
+
+  * ["weblib.Request"] manages cookies, forms, query strings, and file uploads sent from the browser
+  * ["weblib.Response"] handles response data, mime types, redirects, and other information coming from your script.
+  * ["weblib.Sess"] uses python's serialization features to provide session handling that can span multiple machines.
+  * ["weblib.Engine"] ties it all together and communicates with the web server. (There are separate Engines for mod_python, CGI, etc.)
+
+
+=== status ===
+
+Weblib has been fairly stable since around 1999.
+
+=== to-do ===
+
+The following areas need work:
+
+  * get rid of the "config" module, which only causes trouble for new installs
+  * better documentation (flesh out this paper, write a tutorial, etc)
+  * refactor the various wrappers/Engines
+  * create a formal release (right now code is available via CVS)
+  * create a standalone weblib server (see webware project)
+  * explain how Actors can be used with XML-RPC/SOAP for web services
+
+=== quick links ===
+
+  * sourceforge: http://sf.net/projects/weblib
+  * old website: http://weblib.sourceforge.net/

@@ -1,0 +1,5 @@
+I've figured out the basic usage of sixthday.App and weblib.  But I got stuck at SignupApp.  
+
+__init__() takes a Clerk, which takes a storage object.  And MySQLStorage takes a connection.  But how do all the methods in Clerk and MySQLStorage work?  I haven't been able to find a good starter.  The [http://www.webappworkshop.com/apps/webAppWiki-0.1/ demo wiki app] was very helpful in getting started with the App class.
+
+--RickOlson 

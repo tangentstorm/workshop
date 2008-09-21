@@ -1,0 +1,58 @@
+= XmlSerializer Default Mode =
+
+The default XmlSerializer mode will use the strongbox class name as the root element, and each attribute as an XML node under the root.  There are options available to specify the ordering of attributes, the element names, node types, etc.  But, we'll start with a real simple example:
+
+== Define the classes ==
+
+First, let's define the strongbox classes for our data model.
+
+{{{
+from strongbox import *
+from mx.DateTime import *
+import xmlserializer
+
+class Publisher(Strongbox):
+    name = attr(str)
+
+class ComicBook(Strongbox):
+    title = attr(str)
+    publisher = link(Publisher)
+    issues = linkset(forward, 'comicbook')
+
+class Issue(Strongbox):
+    comicbook = link(ComicBook)
+    volume = attr(int, default=1)
+    number = attr(int)
+    releasedate = attr(DateTimeType)
+ComicBook.__attrs__['issues'].type = Issue
+}}}
+
+== Fill the Data ==
+It can be serialized with the following code:
+{{{
+import xmlserializer
+
+books = ({'title':'Amazing Spider-Man', 'pub':0,
+              'issues': ({'volume':1, 'num':500, 'release':Date(2003, 11, 15)},
+                         {'volume':1, 'num':501, 'release':Date(2003, 12, 16)})},
+
+p = Publisher()
+p.name = 'Marvel Comics'
+print xmlserializer.serialize(p)
+}}}
+
+== See the Results ==
+Here is the XML result:
+{{{
+<?xml version="1.0" ?>
+<Publisher>
+  <name>Marvel</name>
+</Publisher>'
+}}}
+
+== A Couple Observations ==
+
+ * Attributes are serialized in a seemingly random order
+ * All properties are rendered as elements.  What about attributes?
+
+Now, let's see about reordering them: XmlSerializerOrder.

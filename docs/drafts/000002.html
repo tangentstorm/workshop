@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+<title>workshop lesson 02: data objects</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: up to date. this is just a description of
+basic python clases. needs doctesting</em></p>
+
+
+<h1>lesson 02: data objects</h1>
+<b>Michal Wallace </b> 
+<i>Fri, 17 May 2002 17:47:28 -0400 (Eastern Daylight Time)</i>
+
+
+
+<h2>A Quick Intro to Objects</h2>
+
+<p>
+When I plan a new web app, I start with the data objects -
+objects whose main purpose is to hold data.
+</p>
+
+<p>
+What are objects? Instead of boring you with definitions,
+let's use an example.
+</p>
+
+<p>
+To begin, fire up a python interpreter. If you don't have
+python yet, you can download it from <a
+HREF="http://www.python.org/">http://www.python.org/</a>
+</p>
+
+<p>
+Since python's interpreter is interactive, you can follow
+along with the example by typing them at the
+&quot;&gt;&gt;&gt;&quot; prompt.</p>
+
+
+<h2>My Dog Spot</h2>
+
+
+<p>Let's create a simple class to represent dogs. By convention, 
+we name classes with capital letters:</p>
+
+<pre>
+   &gt;&gt;&gt;class Dog: pass
+   ...
+</pre>
+
+<p>
+The &quot;...&quot; means that python is waiting for more
+input.  We don't have any more input (that's what
+&quot;pass&quot; means) so just press enter.</p>
+
+<p>That's all it took to create a class called Dog. </p>
+
+<p>A Dog class should contain information that applies
+to dogs. For example, most dogs have four legs:</p>
+
+
+<pre>
+   &gt;&gt;&gt; Dog.legs = 4
+</pre>
+
+<p>But suppose we want to talk about a particular dog - an
+instance of the class Dog:</p>
+
+<pre>
+   &gt;&gt;&gt; spot = Dog()
+</pre>
+
+<p>Now we have a Dog named &quot;spot&quot; (we name instances
+and other variables in lower case to tell them apart from
+classes). Since spot is a Dog, he should have four legs.  To
+test that, we can ask python:</p>
+
+<pre>
+   &gt;&gt;&gt; spot.legs
+   4
+</pre>
+
+<p>Yep, spot has four legs.</p>
+
+<p>But suppose spot has a horrible skiing accident. (Don't
+worry, this is staged - no animals were hurt in the filming
+of this workshop.)</p>
+
+<pre>
+    &gt;&gt;&gt; spot.legs = 2
+    &gt;&gt;&gt; Dog.legs
+    4
+    &gt;&gt;&gt; spot.legs
+    2 
+</pre>
+
+<p>As you can see, python lets us record the fact that while
+most Dogs have four legs, poor spot has only two.</p>
+
+
+<h2>Spot is a Data Object</h2>
+
+
+<p>We said that objects are reusable chunks of data and
+behavior.  The Dog class has a little bit of data (legs=4),
+but no real behavior. All you can do is instantiate it (make
+an instance of it).</p>
+
+<p>Since a Dog instance's main purpose is to store data,
+spot is a data object. If we wanted, we could record all
+kinds of data about spot, just by adding more fields to the
+Dog class: name, breed, color, and birthday might all make
+sense.</p>
+
+
+<h2>Who Let the Dogs Out?</h2> 
+
+(<em>0913.2005: gah! i can't believe i made that joke</em>)
+
+
+<p>Let's say we're building a web app for the neighborhood
+kennel.  We're going to use a Dog object to represent each
+dog. Of course, we can't change our program every time a dog
+checks in or out.  We'd go nuts! Instead, we'll store our
+data objects in some kind of database.</p>
+
+
+<p>In an ideal world, we'd store objects in an object
+database.  There is at least one object database for python,
+but I've never used it, so I can't say much about it. ( <a
+href="http://www.amk.ca/zodb/">http://www.amk.ca/zodb/</a> )</p>
+
+<p>I will say that, in general, object databases are hard to
+query.  Asking for dog # 5 is quick and painless, but asking
+&quot;how many beagles are in the kennel?&quot; usually
+requires actual code to loop through and count, and I don't
+like that.</p>
+
+<p>(I hope I'm not spreading FUD here - if I am, please let
+me know, because I would *love* to work with a really useful
+object database. LDAP servers seem to have a bit more
+strength in the object-querying department, but I don't have
+much experience with LDAP either.)</p>
+
+<p>Meanwhile, I use MySQL. MySQL doesn't know anything about
+objects, but it's fairly easy to write some generic routines
+to convert between MySQL records and python objects. Plus,
+MySQL is very fast, and gives us access to SQL (a powerful
+and somewhat standardized query language).</p>
+
+<p>We'll take a closer look at how this object-relational
+mapping is done in the next lesson.</p>
+
+</body>
+</html>
+

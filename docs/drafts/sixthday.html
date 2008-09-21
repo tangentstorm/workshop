@@ -1,0 +1,325 @@
+<html>
+<head>
+<title>old sixthday notes</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: the details here are bad.  concepts
+are mostly okay except no mention of platonic. needs formatting</em></p>
+
+<hr/>
+<pre>
+= webapp wiki =
+
+NOTE: 10/23/2003 - We're still blowing out the cobwebs here,
+so some of the technical details are very much out of
+date. However the descriptions of what things ARE is
+valid. You can see current pydoc generated documentation
+here:
+
+  http://webappworkshop.com/pydoc/
+
+
+The webapp framework is an architecture for rapidly creating
+interactive, object-oriented web applications. It uses the 
+PythonProgrammingLanguage and consists of the following
+modules:
+
+  * ["weblib"] - web classes similar to those in ASP and PHPLIB.
+  * ["arlo"] - object-relational mapping
+  * ["storage"] - a generic interface to various storage systems
+  * ["strongbox"] - observable data objects with runtime type checking
+  * ["zebra"] - template language that compiles to python code.
+  * ["sixthday"] - generic web applications and helper classes. 
+         (will probably be renamed soon)
+
+As well as the following support modules:
+
+  * ["sdunit"] - pyunit extensions to help with TestDrivenDevelopment
+  * ["pytypes"] - various useful python classes and types
+  * ["handy"] - small useful routines functions
+  * ["ransacker"] - scriptable, incrementally-double-indexed search engine.
+
+There are currently several closed-source applications written 
+with this framework. (A billing system and the CornerhostControlPanel)
+There is also an open source blogging tool: ["rantelope"]
+
+Here are some starting points:
+
+   * AboutSixthday - who, what, when, where, why...
+   * TechnicalOverview
+   * FutureGoals - where we're going with this
+   * SocialAspects - how to build a web app tribe
+   * CodingStandards
+   * SixthdayApplications - existing projects
+   * LinkwatcherRevival - a site redesign using sixthday.
+   * NewbieQuestions - feel free to post yours!
+   * The MemberPage directory - contributors to the project
+   * SimilarProjects we can steal... uh.. learn from :)
+   * SettingUpShop (how to install everything)
+   * GettingStarted (how to start using it)
+
+--MichalWallace
+
+
+================
+
+Sixthday is an N-Tier framework:
+
+   * your data goes in a tabular, relational or object database
+   * ["storage"] provides a unified API for add/edit/delete
+   * ["arlo"] maps the raw data to your ["strongbox"] data classes
+   * ["sixthday"] provides generic logic for various web-based 
+      applications for dealing with your objects.
+   * ["zebra"] (or your own template system) lets you customize
+      the look and feel of the apps.
+
+Domain-specific logic goes into your strongbox classes, so
+that other non-web interfaces (xml-rpc, SOAP, GUI, etc) can
+use the same logic.
+
+
+============
+
+
+The name "sixthday" comes from the movie TheSixthDay, which
+deals with cloning. In the movie, clones are created by
+modifying generic, fully grown bodies stripped of genetic
+information.
+
+Similarly, the sixthday project aims to provide generic
+services such as user administration, object categorization,
+and form-handling. These services can be quickly strung
+together and then customized through templates.
+
+The sixthday project has been developed privately since 1998
+(it was renamed after the movie) and is now available as
+open source under a python style license.
+
+There are several SixthdayApplications in various stages
+of development.
+
+
+---------
+
+here are some old, old  notes from when I started this project.
+Some of it is still accurate...
+
+1011.2000
+
+The beauty of the zike architecture is that it doesn't tie your
+applications to the web. You build a front end that presents and
+modifies stuff on the web, but your actual objects can live on a
+webserver, the desktop, inside the smartbox, or even on a hand held
+device (once the python machine gets working there).
+
+  * you can partition off your database so that users can have the same
+tables, but never see each other's data.
+  * very little code to work with database
+  * standard wizards, formacceptors, and other actors make saving objects a breeze...
+  * authentication is handled for you
+  * permission checking is handled for you
+  * design websites in a RAD tool (eventually)
+  * only use what you need
+  * familiar to ASP and PHP developers
+  * loads quickly (.pc files)
+
+
+--------
+
+
+  * mixing code and html is ugly and error-prone
+  * mixing code and SQL is ALMOST just as ugly
+  * SQL is nice, but it would be nicer if it ran 
+    ON TOP of your object model. (hence the goal of 
+    an ["arlo"]-specific query language.
+  * if you don't have a unit test for it, it's probably broken.
+  * write the test before you write the code
+  * most web sites are very similar, but people reinvent the wheel
+  * we are also reinventing the wheel... because we want all our 
+    wheels to match. :)
+  * minimize dependencies. we want a lot of apps to use the same 
+    small set of technologies - so that it's easier on our brains, 
+    our budgets,  and our sysadmins. 
+  * stealing ideas from smart people is a GOOD thing!
+
+
+
+
+
+==============
+
+Some goals: 
+
+
+  * ["weblib"]: get it working with http://twistedmatrix.com
+  * ["arlo"]: better query support ( see rick's QueryBuilder )
+  * ["storage"]: allow using keys named something other than "ID"
+  * ["zebra"]: upgrade to pyXML or 4suite (vs old xmllib)
+  * ["zebra"]: get old "group", "head", and "foot" tags working
+  * ["sixthday"]: improve the collection of canned components/apps
+  * ["ransacker"]: speed improvements, lots of refactoring
+  * better docs all around
+  * nightly web-based reports of unit test status, code coverage, etc
+
+
+Blue sky / maybe someday:
+
+  * a meta-app for creating object models, reports, etc
+  * a GUI interface (similar to Microsoft Access) for the meta-app
+  * multiple scripting languages (see http://pirate.tangentcode.com/ )
+  * storage backend for with http://www.orbtech.com/wiki/PyPerSyst  
+  * an actual SQL-like query language for arlo (??)
+  * NakedObjects interface for arlo? ( http://www.nakedobjects.org/ )
+
+---------
+
+
+similar projects
+----------------
+
+Spyce: Server Python Pages
+   http://spyce.sourceforge.net/
+
+A.M. Kuchling on the MEMS exchange architecture:
+
+   http://amk.ca/python/writing/mx-architecture/
+
+WebWare for python:
+
+   http://webware.sourceforge.net/
+
+python web modules list:
+
+   http://groups.yahoo.com/group/python-web-modules
+
+SQLObject object relational mapper
+
+   http://sqlobject.org/
+
+Cheetah Templates - template engine and code generator
+
+   http://cheetahtemplate.org/
+
+
+-------
+
+<h2>social aspects</h2>
+
+
+It's okay to reinvent the wheel.
+
+It's even better to copy other people's wheels and paint
+them to our liking.
+
+The vision here is a set of libraries and applications that
+have a unified feel to them. These are separate apps with a
+shared culture, not one gigantic app that does everything or
+herds of completely incompatible utilities.
+
+Why shoot for this? Because we want to make it easy to share
+knowledge between ourselves. If my bug tracking system works
+more or less like your blog editor, then we can share bits
+and pieces. Face it, every python web app out there has its
+own layers for storage, template, web, authentication, you
+name it. Merging all those codebases would be a nightmare,
+but if someone takes it upon themselves to steal the best
+ideas from each one, then that project will probably be in
+good shape. That's what I want to do here.
+
+Ideally, people will work together one on one. I see myself
+writing lots of documentation here, and I see a lot of
+PairProgramming going on rather than people just submitting
+patches. If someone just sends me a patch I have to figure
+out what the heck it's all about. If they work with me to
+build it, then I'll understand... I don't personally have to
+be one of the people pairing, I just think that two people
+produce better code than one, and that it's a good way to
+build software.
+
+--MichalWallace
+
+
+
+---
+
+
+The sixthday web architecture is a pretty simple 3-tier model:
+
+  * Data Layer
+
+    * '''Storage:''' Data gets stored in tables using a
+    simple relational model. Usually these tables are in
+    MySQL or another RDBMS, but they don't have to be - any
+    format capable of describing tables (eg, text files,
+    metakit, xml, etc) is fine.
+
+    * '''Data Classes:''' The Zike Data Classes (zdc)
+          provide an abstraction layer on top of the
+          tables. Basically, you define a subclass of
+          zdc.RecordObject for each major table that
+          describes your business rules, and RecordObject
+          takes care of the actual loading and saving of
+          data.  There are also utility classes to define
+          table relationships (eg, LinkSet for simple 1:*
+          joins, Junction for *:* junction tables, etc)
+
+  * '''Application Layer:''' Generally, your actual web
+        applications are subclasses of weblib.Actor. Actors
+        are scripts that can do different things based on
+        actions passed in on the URL.  Because Actors are
+        python objects, you can reuse them independently of
+        the web (eg, in a GUI app), or on the web but
+        independent of a browser (ie, via SOAP or XML-RPC).
+
+  * '''Presentation Layer:'''
+
+    * '''Views:''' For each page that is to be displayed,
+            your application generates a data view, which is
+            a dictionary whose keys are strings and whose
+            values are either strings, other views, or lists
+            of views. This is similar to a lightweight DOM,
+            and in fact, it is trivial to render views as
+            XML.
+
+       * '''Zebra:''' Zebra is a template language that can
+            easily generate HTML, text, or whatever else
+            based on data views.  Zebra allows you to mix
+            generated output with python code.  It also
+            provides higher level reporting functions like
+            headers, footers, and sorting. Zebra has two
+            syntaxes, depending on your needs: either an XML
+            syntax for easy integration with other tools, or
+            a python-style outline syntax for high
+            readability.
+
+    * '''XSLT:''' If zebra isn't enough for you (or too much
+            for you), you can choose to code your display
+            logic in XSLT instead.  One powerful approach is
+            to use zebra's higher level operations to
+            quickly rearrange the data view, and then fine
+            tune the output using XSLT. Or you can use XSLT
+            directly off the data view.
+
+Note that you don't have to do things this way. If you
+prefer straight scripts that talk directly to a database via
+SQL, you can do that too. Just grab weblib and the python
+DB-API and jump right in. Want to use Zebra or ZDC outside
+of the web? You can do that! Want to mix and match, or focus
+on learning one at a time? No problem! Prefer another
+template system to zebra? Fine by me. The weblib, zebra, and
+zdc packages are completely separate and can be downloaded,
+installed, learned, and used completely independently.
+
+If you do decide to write your apps using the unified
+architecture, then you'll want to take a look at the
+sixthday package, which defines some useful classes such as
+Node, Content, User, UserAuth (for authentication). Sixthday
+also provides some useful Actors, like a user signup system,
+and tools for editing data objects through a form, and even
+several full web applications complete with templates which
+you can customize.
+
+</pre>
+</body>
+</html>

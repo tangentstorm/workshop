@@ -1,0 +1,47 @@
+<html>
+<head>
+<title>where clauses in storage/arlo</title>
+</head>
+<body>
+
+<p><em>Status: out of date as of 0913.2005 ; has doctests.</em></p>
+
+This was Rick's original concept, based on ideas
+from SQLObject. He and I later did a pair programming 
+session and decoupled these completely from SQL.
+
+See storage.QueryBuilder for the actual code.
+
+<hr/>
+<pre>
+= QueryBuilder =
+
+The QueryBuilder uses Python's magic variables to generate SQL WHERE statements from Python expressions:
+
+{{{
+>>> user = QueryBuilder('user')
+>>> user
+user
+>>> user.name
+user.name
+>>> user.name == 'rick'
+user.name = 'rick'
+>>> (user.name == 'rick') & (user.lastname == 'olson')
+(user.name = 'rick') AND (user.lastname = 'olson')
+>>> user.name.startswith('r')
+user.name LIKE 'r%'
+>>> user.name.endswith('k')
+user.name LIKE '%k'
+>>> user.name.contains('ic')
+user.name LIKE '%ic%'
+>>> user.ID >= 5
+user.ID >= '5'
+}}}
+
+[http://techno-weenie.com.mn.sabren.com/ex/querybuilder.py.txt download]
+
+The idea is you pass this QueryBuilder object to a method expecting a WHERE clause for an SQL query.  Also, it should be possible to convert the python expressions to other statements as well.  See my attempt at a MockQueryBuilder.
+</pre>
+
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [workshop-lite] rantelope: day one
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:michal%40sabren.com">
+   <META NAME="robots" CONTENT="index,nofollow">
+   
+   
+   <LINK REL="Next"  HREF="000006.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[workshop-lite] rantelope: day one
+   </H1>
+    <B>Michal Wallace
+    </B> 
+    <A HREF="mailto:michal%40sabren.com"
+       TITLE="[workshop-lite] rantelope: day one">michal@sabren.com
+       </A><BR>
+    <I>Mon, 23 Sep 2002 21:39:50 -0400 (Eastern Daylight Time)</I>
+    <P><UL>
+        
+        <LI> Next message: <A HREF="000006.html">[workshop-lite] rantelope: day 002
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5">[ date ]</a>
+              <a href="thread.html#5">[ thread ]</a>
+              <a href="subject.html#5">[ subject ]</a>
+              <a href="author.html#5">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>rantelope: day 001
+------------------
+
+Today I started work on a content management system
+called Rantelope. I will be posting technical discussion
+of the code to the webAppWorkshop list every day this 
+week, as I work on adding new features.
+
+You can try rantelope out interactively as it 
+develops; simply visit the rantelope homepage:
+
+    <A HREF="http://www.rantelope.com/">http://www.rantelope.com/</A>
+
+After taking a look at the live demo, you should 
+follow the link to the &quot;DAY 001&quot; code, as it will
+be understand the rest of this article.
+
+==[ today's objective ]==
+
+Today's goal was to create a VERY rough weblogging
+tool. I wanted to allow multiple blogs (called 
+&quot;channels&quot; in rantelope), and multiple entries
+(called &quot;stories&quot;) in each channel. 
+
+For today, the only output will be RSS. RSS is
+an XML format designed for syndicating blogs and
+newsfeeds.
+
+==[ implementation ]==
+
+If you look at the DAY 001 code, most of the logic
+for the application is in the file &quot;rantelope.app&quot;
+(Click the version number (1.1.1.1) to see the code)
+
+As you can see, the code is broken into three parts:
+  - the object model
+  - the interface
+  - the main code, which invokes the program
+
+I will talk about each part briefly. I'm going to
+be pretty technical here. If you don't understand
+something, chances are taht other people have the
+same question, so please ask on the webAppWorkshop
+list!
+
+Okay:
+
+-- object model --
+
+The object model is pretty simple. As I said, we
+have Channels and Stories. One Channel can have
+many Stories. Both have some attributes which
+correspond to RSS tags.
+
+The Channel class has a method to write an RSS
+file. It uses a template language I wrote called
+zebra. 
+
+The &quot;rss.zb&quot; file is a fairly simple example of
+a zebra template. It simply turns a a Channel
+object into an RSS feed. Like python, zebra has
+an indentation based syntax:
+
+  - Lines starting with an asterisk (&quot;*&quot;) are 
+    zebra statements. 
+  - Items between  &quot;{:&quot; and &quot;:}&quot; are variables 
+    to be insterted into the output.
+
+Hopefully, the code in the rss.zb is self explanatory. 
+
+-- the interface --
+
+Getting bac to rantelope.app, we see the next part
+is a big calss called &quot;RantelApp&quot;. 
+
+Since so may web applications involve adding, editing, 
+deleting, and listing things, it pays to make it simple
+to do these things. Since we are using an object 
+oriented language, we simply can subclass another
+application and tailor it to our needs.  In this case, 
+RantelApp subclasses a class called AdminApp, which 
+contains genericadd/edit/delete and list routines.
+
+RantelApp also uses zebra templates. Each call to
+generic_show() includes a classname (Channel or Story)
+and a zebra template filename.
+
+So, for example, the edit_story() method near the end
+of the class takes a Story and renders it using the
+template in the file frm_story.zb ... The logic of 
+determining WHICH Story gets loaded is handled by 
+generic_show(), which RantelApp inherited from AdminApp.
+Basically, AdminApp figures out what to do from the
+query string. (If you're curious, try poking around
+through the live demo, and watching the URL)
+
+The other RantelApp methods are basically the same.
+A couple quick notes:
+
+   - To avoid the infamous 'user hits submit twice'
+     problem, we always redirect after a form post.
+     So save_channel() and save_story() both have
+     a call to redirect()
+
+   - save_story() also loads up the corresponding
+     Channel object and asks it to regenerate its
+     rss file. So RSS gets written whenever a story
+     gets saved. (This probably ought to happen 
+     in save_channel(), too)
+
+
+--[ the main code ]--
+
+When RantelApp.save_story() loads up the channel, it
+gets it from self.clerk ... Every AdminApp has a clerk,
+which is the object responsible for loading stuff in
+and out of the storage system.
+
+In this case, I'm using a MySQL database. The &quot;dbmap&quot;
+variable explains how each object and relationship
+gets mapped to my database. The database itself is
+defined in the file rantelope.sql.
+
+Notice that this is the only place a database connection
+(sqlRantelope.dbc) is mentioned. If we had another kind 
+of Storage class besides MySQLStorage, then the program 
+would work just as well with it, and nothing would have
+to be changed except the definition of CLERK.
+
+Anyway, that's about it. All that's left is to create
+a RantelApp instance, run it, and send the result to 
+the browser.
+
+--[ the end ]--
+
+That's it. This initial version of Rantelope took about
+two and a half hours to put together. And I'm sure it 
+shows! If you look at it, it's not pretty AT ALL, and 
+there are probably plenty of bugs. But, this is how a
+web app gets its start.
+
+Since most site authors would rather have a blog than
+a raw RSS feed, the next task will be to generate HTML.
+Tomorrow, I will add a simple template system that does
+this, either with zebra or with the more standard XSLT. 
+
+
+Sincerely,
+
+Michal J Wallace
+Sabren Enterprises, Inc.
+-------------------------------------
+contact: <A HREF="mailto:michal@sabren.com">michal@sabren.com</A>
+hosting: <A HREF="http://www.cornerhost.com/">http://www.cornerhost.com/</A>
+my site: <A HREF="http://www.sabren.net/">http://www.sabren.net/</A>
+--------------------------------------
+
+
+</PRE>
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	
+	<LI> Next message: <A HREF="000006.html">[workshop-lite] rantelope: day 002
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#5">[ date ]</a>
+              <a href="thread.html#5">[ thread ]</a>
+              <a href="subject.html#5">[ subject ]</a>
+              <a href="author.html#5">[ author ]</a>
+         </LI>
+       </UL>
+</body></html>

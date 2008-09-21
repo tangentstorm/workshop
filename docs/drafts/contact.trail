@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/css" href="workshop.css"?>
+<trail>
+
+<title>creating an email contact form</title>
+
+
+<todo>This should talk about security, validation,
+and of course sending mail.</todo>
+
+<hr/>
+
+<todo>
+validate the fields
+  - refererer is important but not enough
+send the actual mail
+send a simple email with sendmail
+
+mass mailing....
+
+How to send out to the whole mailing list.
+</todo>
+
+</trail>

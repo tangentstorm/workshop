@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+<title>workshop lesson 01: the spec</title>
+</head>
+<body>
+
+<p><em>status 0913.2005: mostly accurate. however, this
+isn't much of a lesson, more of a broad description of the
+cornerhost control panel.</em></p>
+
+    <b>Michal Wallace</b> 
+    <i>Thu, 9 May 2002 03:23:26 -0400 (Eastern Daylight Time)</i>
+
+
+<h1>lesson 01: the spec</h1>
+
+
+<h2>Jumping In</h2>
+
+<p>I changed my mind. Instead of talking theory for the
+first ten lessons, let's start with a real app.</p>
+
+<p>My current project is a control panel for cornerhost. The
+idea is to give customers more power over their accounts,
+and cut back on the number of routine support tasks I have
+to handle personally.</p>
+
+<p>I'll try to focus on the technology and the development
+process, and gloss over the control-panel-specific
+details. Still, it's important to know where you're going,
+so let's talk a bit about how the app will be laid out.</p>
+
+<h2>N Little Tiers</h2>
+
+<p>When I build a web app, it usually has several tiers:</p>
+
+<ul>
+<li>a SQL (&quot;sequel&quot;) database</li>
+<li>a reusable object-relational mapper</li>
+<li>an object model</li>
+<li>the program logic</li>
+<li>HTML (or XML) templates </li>
+<li>CSS, Javascript, and other client-side stuff</li>
+</ul>
+
+<p>
+Sometimes, you have more or fewer tiers, so it's called
+n-tier for short. Here are two things to remember about
+n-tier applications:
+</p>
+
+
+<ul>
+<li> A tier should talk only to the tiers directly 
+     above or below it.</li>
+<li> Don't blur the edges. (For example, keep SQL out
+     of your python, and keep python out of your HTML)
+</li>
+</ul>
+
+<p>
+It's often extra work to follow these principles, but if I
+ignore them (eg, writing a quick script with everything in
+one file) I almost always have to go back and clean up.
+</p>
+
+
+<p>The control panel, we'll be dealing with each of these
+tiers. We'll look at each in detail later. For now, let's
+consider the requirements.</p>
+
+<h2>Expect to be Wrong</h2>
+
+
+<p>I like to design my apps up front, so I know where I'm
+going, but I also know that as I work, I'll keep coming up
+with better and better ideas. So I'm happy with a rough
+design.</p>
+
+<p>Basically, I want to know:</p>
+
+<ul>
+<li>What should the app do?</li>
+<li>What's the simplest way to make it work?</li>
+</ul>
+
+<p>Whatever answers we come up with, we'll probably be wrong
+about some things. That's okay. If we're good, we'll make
+sure our software is easy to change as we go along. That
+means we can get started with a very rough idea.</p>
+
+<p>So.. On to our two questions.</p>
+
+<h2>What should the app do?</h2>
+
+<p>I'll probably add to this list eventually, but here are
+the most important features of the control panel. (They're
+most important because they're the most common requests I
+get):
+</p>
+
+<ul>
+<li>Add/Edit/Delete websites (domains)</li>
+<li>Add/Edit/Delete email aliases</li>
+<li>Show billing information (balance, history, etc)</li>
+<li>Logfile Analysis (this part's mostly done)</li>
+</ul>
+
+<p>
+Finally, I want it centralized. In other words, there's one
+control panel and it manages accounts all the hosting
+machines.  So we'll also need a secure way to communicate
+with those machines.
+</p>
+
+
+<h2>What's the simplest way to make it work?</h2>
+
+<p>
+The front end of the control panel will be your basic web
+app.  There will be a login page, and several forms that
+ultimately control records in a database.
+</p>
+
+<p>
+That's the easy part, and using python and a good web
+framework, it's less work than you might think.
+</p>
+
+<p>
+Then there's some scripts that generate configuration files
+for the web, DNS, and email servers. I've already done a lot
+of the work here: I've been tweaking my command-line python
+tools for the past few months.
+</p>
+
+<p>
+Since these scripts require restarting various long-running
+programs (like web and email servers), it's important to
+make sure that changes are queued up and done in batches.
+This will require some sort of periodic scheduler.
+</p>
+
+<p>
+Finally, to communicate between the control panel and the
+actual servers, I plan to use a custom XML-RPC server on
+each machine. (Again, python makes it easy.)
+</p>
+
+<h2>Let's go!</h2>
+
+<p>
+As far as software specs go, this was pretty painless.
+Still, it's enough to get started. In the next lesson,
+start writing code.
+</p>
+
+</body>
+</html>

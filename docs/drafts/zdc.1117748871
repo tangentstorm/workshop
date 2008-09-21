@@ -1,0 +1,46 @@
+= zdc overview =
+
+=== summary ===
+
+The ZDC ("zike data classes") package provides (yet another) Object-Relational mapping service for python. On the object side, ZDC provides the following classes (note that the "Class" prefix is only provided as an aide to this wiki):
+
+  * ClassObject - adds strong(er) typing and dynamic properties to normal python objects
+  * ClassObjectView - makes an Object look like a dictionary (handy for ["zebra"] templates)
+  * ClassLinkSet - handles one-to-many relationships between objects
+  * ClassJunction - handles many-to-many relationships between objects
+
+On the relational side, 
+
+  * ClassField -
+  * ClassRecord -
+  * ClassTable -
+  * ClassConnection -
+
+The two sides are combined in ClassRecordObject, though this may change, eventually.
+
+ZDC also contains classes that describe various data types:
+
+  * ClassFixedPoint (shamelessly stolen from Tim Peters)
+  * ClassDate - simple dates, with arithmetic support (eg, today + 1)
+  * ClassIdxDict - similar to microsoft collections, a cross between  python's standard dictionary and list types.
+
+=== quicklinks ===
+
+sourceforge: http://sf.net/projects/zdc/
+webpages: (none worth mentioning yet)
+documentation (old): http://zike.sourceforge.net/doc/api.zdc.html 
+
+=== status ===
+
+ZDC has been fairly stable since late 2000 or so... It works beautifully as-is, but the interface isn't as clean as it could be. (See below)
+
+=== to-do ===
+
+The following areas need work:
+
+   * find a better name!
+   * create a driver for MetaKit
+   * investigate the class creation syntax from RoundUp
+   * ZDC server (kind of like EJB container?)
+   * Decouple RecordObject from the datasource. (You should not need a Connection just to create a RecordObject)
+
