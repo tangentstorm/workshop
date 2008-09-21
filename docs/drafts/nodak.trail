@@ -1,8 +1,23 @@
 <?xml version="1.0"?>
 <?xml-stylesheet type="text/css" href="workshop.css"?>
-<trail>
+<trail xmlns:trail="trailblazer">
 
 <title>nodak: modelling unstructured data with triples</title>
+
+<trail:blaze trail="nodak"/>
+
+<trail:blaze trail="tests">
+import unittest
+
+<trail:blaze trail="nodak"/>
+
+<trail:blaze trail="main">
+if __name__=="__main__":
+   unitttest.main()  
+</trail:blaze>
+</trail:blaze>
+
+
 
 <goal>one table for all your data</goal>
 
@@ -86,33 +101,14 @@ we'll just make the objectID 0.</p>
 <todo>generate the sql with a schema </todo>
 
 <pre>
-def createNodeTable(cur):
-    cur.execute(
-        """
-        CREATE TABLE node (
-            ID integer primary key,
-            url text
-        )
-        """)
-
-def createArcTable(cur):
-    cur.execute(
-        """
-        CREATE TABLE arc (
-            ID integer primary key,
-            subNodeID integer not null,
-            predNodeID integer not null,
-            objNodeID integer not null
-            val text,
-            began datetime,
-            ended datetime
-        )
-        """)
+<trail:extend trail="nodak">
+  
 
 def nodeSchema(dbc):
     cur = dbc.cursor()
     createNodeTable(cur)
     createArcTable(cur)
+</trail:extend>
 
 <todo>add a statement view with union</todo>
 <todo>add some check that objNodeID==0 IFF val is null</todo>
@@ -126,6 +122,9 @@ from strongbox import *
 </pre>
 
 <todo>need some kind of url validator type based on urlparse lib</todo>
+
+
+
 
 <pre>
 class Node(Strongbox):

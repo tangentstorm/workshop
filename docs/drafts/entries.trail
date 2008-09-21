@@ -62,7 +62,7 @@ return Model({
 
 <goal>Create a Form for Adding Records</goal>
 
-<trail:blaze name="templates:entry-form.zb">
+<trail:blaze trail="templates:entry-form-zb">
 <pre><![CDATA[
 <html>
 <head>
@@ -138,7 +138,7 @@ def saveEntry(ID, posted, title, content):
 <p>We could have two forms, but it's better to reuse the earlier form?
 This means we need to make the add page supply a real model:</p>
 
-<trail:replace name="templates:form.zb">
+<trail:replace trail="templates:entry-form-zb">
 <pre><![CDATA[
 <html>
 <head>
