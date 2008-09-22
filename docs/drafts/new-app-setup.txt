@@ -23,6 +23,21 @@ paster serve --reload bodyblog.app
    something like: clerks.Clerk(SCHEMA(dbmap), MySQLStorage(dbc))
 
 
+
+Test: you should bea ble to do this now:
+
+# create clerk manually
+>>> from bodyblog import Post
+>>> post = clerk.fetch(Post, ID=x) # where x = some id out of the db
+>>> post.BlogText = "blah blah blah"
+>>> clerk.store(post)
+
+and it should update live bodyblog site.
+
+=== milestone 1 complete ========
+
+
+
 * define a "update post" handler
 
 
