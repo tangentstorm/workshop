@@ -1,0 +1,61 @@
+
+cd sites\bodyblog
+paster serve --reload bodyblog.app
+
+
+== for all of these, just do the Blog/Post objects for now ==
+
+
+* create strongbox class for each table in db
+
+  use cornerhost/schema/ directory for examples
+  dates: from pytypes import DateTime
+  - start with Blog / Post objects .. ask michal if need help
+
+
+* map classes to tables with dbmap
+
+  ex: https://secure.sabren.com/trac/cornerops/browser/cornerhost/trunk/cornerhost/dbmap.py
+
+
+* add to bodyblog.py:  
+   a Clerk that takes storage.MySQLStorage (see workshop trac)
+   something like: clerks.Clerk(SCHEMA(dbmap), MySQLStorage(dbc))
+
+
+* define a "update post" handler
+
+
+  # in bodyblog.py:
+  class StorePostCommand(object):
+      def invoke(self, _clerk, ID):
+          
+   _clerk.fetch(Post, int(ID) )
+   Post.update(xxxx)
+   _clerk.store(Post)
+
+
+
+* define a RESTful API
+  ex: amoeba.py 
+
+
+  edit posts:
+   self.rest = REST(
+     URI("/posts/(?P<ID>[0-9]+)$",
+         PUT=))
+
+     no browser support for PUT, so: tunnel through post with:
+
+     <form action="/posts/${id}
+     <input type="hidden" name="@method" value="PUT">
+
+
+
+*   new post:
+     POST /posts/
+
+* copy layout.gen from amoeba to theme\default
+
+* make it look like bodyblog but valid html (clean up as desired)
+  
