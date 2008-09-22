@@ -1,8 +1,0 @@
-Ransacker is a search engine written in python. It works, but last time it was tested, turned out to be uncomfortably slow. I did quite a bit of work optimizing it, then dropped it to focus on ZikeShop. 
-
-The reason for writing YetAnother search engine was that this one was very good at indexing things that aren't in files. That is, you can pass it arbitrary chunks of text (from a database, say) and index it with whatever key you like. Most other search engines (at the time anyway) seemed to be fundamentally tied to indexing pages on file system or the web.
-
-This project needs help!
-
-old homepage: http://ransacker.sf.net/
-

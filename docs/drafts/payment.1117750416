@@ -1,9 +1,0 @@
-The python payment library contains code that talks to merchant accounts to allow online payment processing. There is currently code for:
-
-  * authorize.net
-  * verisign (formerly signio)
-  * bank of america
-
-status: this project needs help!
-
-sourceforge: http://sf.net/projects/payment/
