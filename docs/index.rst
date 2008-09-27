@@ -2,13 +2,19 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to webAppWorkshop's documentation!
-==========================================
+webAppWorkshop : tools for writing web apps in python
+=====================================================
 
-Contents:
+**Welcome to the workshop!** Browse the links below to
+see how the webAppWorkshop can work for you.
+
 
 .. toctree::
    :maxdepth: 2
+   
+   moduledocs/index
+   whipupawebapp/index
+
 
 Indices and tables
 ==================
