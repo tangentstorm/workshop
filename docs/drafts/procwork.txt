@@ -1,0 +1,106 @@
+procwork spec
+
+This is the spec I gave to Jade:
+
+
+Overview: Clockwork
+-------------------
+
+Clockwork is an asynchronous programming system like twisted,
+except that clockwork is:
+
+  - much much smaller, with fewer features
+  - based on generators and coroutines rather
+    than callbacks.
+
+I have no desire to rewrite or compete with twisted. But I
+think using generators makes for much clearer code than
+the old style twisted. Deferreds.
+
+In fact, twisted has some generator code itself, if you
+twisted.internet.defer.inlineCallbacks ... It's just locked
+into the old model for legacy reasons.
+
+
+I try to use a test-first style of programming, and I try
+to design my tests as if they were a specification. You
+can see the current docs/tests for twisted in this file
+
+  https://secure.sabren.com/trac/workshop/browser/trunk/specs/clockwork.spy
+
+(it's plain python... the .spy extension is a silly
+naming convention I made up that's hopefully going away)
+
+The actual implementation is here:
+
+  https://secure.sabren.com/trac/workshop/browser/trunk/code/clockwork.py
+
+
+I'd really like clockwork to leverage twisted's technology
+wherever possible. Eventually that will include networking,
+but right now the most pressing concern is subprocesses.
+
+
+
+The Subprocess Problem
+----------------------
+
+The reason this is pressing is that I have a mission-critical
+sever monitoring system currently called vengeance. It started
+as a watchdog script that would kill off long-running cgi's
+but has grown over the years into a rather complex monitoring
+system.
+
+The problem is that vengeance makes use of a bunch of processes,
+and if the load gets bad, those processes slow down. So vengeance
+might hang waiting for a small process to run, and never get around
+to launching a more critical process that could actually fix the
+load problem.
+
+
+First Goal: procwork
+--------------------
+
+My initial attempt to manage subprocesses asynchronously is here:
+
+   https://secure.sabren.com/trac/workshop/browser/trunk/code/procwork.py
+
+
+I would like to keep the name but replace the code with a new
+implementation based around twisted.runner:
+
+   http://twistedmatrix.com/documents/current/api/twisted.runner.html
+
+The main obstacle is that I *don't* want to create .tac or .tap files
+or have to launch the system with twistd. Clockwork users should never
+have to do anything with twisted other than installing it. Part of the
+idea behind clockwork is that you should be able to run it *inside* a
+synchronous block of python code just by using a wrapper (and the top
+level execution would block, just like with a normal python function).
+
+On the other hand, I would much rather wrap twisted.runner than
+duplicate its code. So this really boils down to a problem of making
+twisted bend to our will rather than vice versa.
+
+It's in "untwisting" twisted that I need the most help. I think it
+would be great if this is something that can be used generically,
+like so:
+
+   >>> import untwisted
+   >>> untwisted.add(SomeDeferredObject)
+   >>> untwisted.tick()
+
+   deliverables:
+
+     - procwork.spy  - test cases and usage docs (see clockwork.spy for basic idea)
+     - procwork.py   - high level interface for twisted
+
+   optional:
+
+     - untwisted.[spy,py] - generic entry point into twisted
+
+
+Next step will be to get you into the vengeance.py code.
+I need to get that stuff into subversion first, though
+(it's in an old cvs repository at the moment.)
+

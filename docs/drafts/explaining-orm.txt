@@ -1,0 +1,182 @@
+yix2k: Blog.ID: "id",
+Blog.Title: "EntryTitle",
+Blog.Date: "DatePosted",
+yix2k: is that right?
+msabren: no
+yix2k: or should that be Post.id
+yix2k: ok 
+msabren: you don't map attributes
+msabren: you only map the class itself and  the links
+msabren: and maybe linksets. i forget.
+yix2k: do an ie for me again please?
+yix2k: the example looks like field names
+msabren: ie what?
+yix2k: example
+yix2k: ie: 
+msabren: oh sorry
+msabren: what are you looking at now? show men
+msabren: me
+yix2k: https://secure.sabren.com/trac/cornerops/browser/cornerhost/trunk/cornerhost/dbmap.py
+msabren: ok
+msabren: so what that does is it maps Classes to tables
+yix2k: ok
+msabren: and it maps Links to foreign keys
+yix2k: So, for instance, Usage on line 13
+yix2k: is a table
+msabren: yes
+yix2k: and Usage.user is a foreign key?
+msabren: well Usage is a class, and sys_user_traffic" is a table
+yix2k: yeah
+msabren: Usage.user is a link (look at Usage.py)
+msabren: schema/Usage.py
+msabren: Usge.user is a link(User) property
+msabren: hmm
+msabren: the issue is that Usage.user is an attribute of the Usage class, but there's no "user" table in the database
+msabren: i mean
+msabren: sorry
+msabren: no sys_user_traffic.user  column
+msabren: i think it's weird to call the column "user" when it's really a user *ID*
+yix2k: ok that's where i'm getting lost
+yix2k: where is userid?
+msabren: there's a sys_user_traffic.userID table
+msabren: column
+yix2k: but how does the code know that>
+msabren: it doesn't
+msabren: you have to tell it
+msabren: you also have to tell it that Usage objects aren't stored in a table called "Usage" but in a table called "sys_user_traffic"
+msabren: so... you want something that *maps* the classes and links to stuff in the db
+msabren: a db...map 
+msabren: hence dbmap.py 
+yix2k: where does it do that?
+msabren: in the file you are lookingat, dbmap.py
+msabren: that whole file is just one big dictionary
+msabren: DBMAP = {
+msabren: starts a python dictionary, right?
+yix2k: yeah
+yix2k: i got that far
+msabren: so this dictionary has some keys that are strongbox classes, and some that are link properties of those classes
+msabren: those are the keys, and the values are strings
+msabren: there's one for duckbill, too, and the  DBMAP.update line at the bottom just combines them together so cornerhost can use the duckbill db map as well
+yix2k:  yeah
+yix2k: um
+msabren: if you look here, you see it all gets put together:
+msabren: https://secure.sabren.com/trac/cornerops/browser/cornerhost/trunk/cornerhost/config.py
+msabren: clerks.Schema wraps that dictionary
+yix2k: Usage: "sys_user_traffic",
+Usage.user: "userID",
+msabren: then the schema is passed to a Clerk
+yix2k: ok go easy on me
+yix2k: usage: the table
+yix2k: usage.user is ....?
+msabren: https://secure.sabren.com/trac/cornerops/browser/cornerhost/trunk/cornerhost/cornerhost.sql
+msabren: look at the sql file and scroll down to sys_user_traffic
+msabren: very bottom
+yix2k: so userid is just a field in that table
+msabren: yep
+yix2k: the key field
+msabren: yep!
+yix2k:  well
+msabren: the foreign key that refers to sys_user.ID
+yix2k: so what i'm working on
+msabren: make sense now?
+yix2k: blogs would be the table
+yix2k: .id would be the key that refers to blogposts.id
+msabren: no
+msabren: that can't be right
+yix2k: i need to put blogposts in there though right?
+yix2k: blog: "blogs"
+yix2k: blogs.id = "id"
+msabren: no
+msabren: ok every table has a primary key
+msabren: right?
+yix2k: yep
+msabren: in my world, that key is always called ID
+yix2k: *heh*
+msabren: which is a limitation of my framework
+msabren: but that's the way it is right now
+yix2k: ok
+msabren: so you never have to tell it about ID
+msabren: you put the ID field in the Class
+msabren: so User.py there's an ID 
+yix2k: which is ironically called id
+msabren: every strongbox has an ID
+msabren: so it knows about the primary key automatically
+msabren: but it doesn't know about foreign keys
+yix2k: so blogs: "blogs" ... but the other table has id too
+msabren: yes
+msabren: it should look something like:
+msabren: Blog : "blogs",
+msabren: Post : "blogposts",
+msabren: Post.blog : "blogid"
+msabren: where blogid is the appropriate column in the blogposts table
+yix2k: so there needs to be two fields as a key?
+msabren: no
+yix2k: how does it know blogid
+msabren: i guarantee you there is a field called blogid in the blogposts table.. it might be spelled differently but there's something in the post table that says wht blog the post belogns to
+yix2k: i;m sure there is
+yix2k: but i'm saying ... what if there weren't
+msabren: then we'd have to add one
+yix2k: so every table needs two id fields
+msabren: no
+msabren: Blog table only has one id - blogid
+msabren: well it probably has a userid too
+yix2k: it has two: id and blogid
+msabren: i'm sorry, i get what you're saying now
+msabren: we ADDED blog.ID to the table right?
+yix2k: yep. you said your framework needed it
+msabren: yes
+msabren: sorry
+msabren: like i said, i make the assumption that the primary key is named ID
+msabren: every database I've ever designed works that way
+msabren: but some people prefer to call it tablenameID
+yix2k: yep
+msabren: corby had that preference
+msabren: so as a compromise, we're leaving that field alone and just adding a new key
+msabren: blogID should just be an extra column on the table now. ID should be made the primary key
+yix2k: right
+yix2k: i still have to make it the pk
+msabren: so forget that blog.blogID exists
+yix2k: ok
+msabren: it's only there for ASP
+yix2k: right
+msabren: if it weren't there, then the blogs table would only have the primary key ID
+yix2k: yes
+msabren: blogposts will need an ID too
+yix2k: it has it
+msabren: did you create it?
+yix2k: yeah
+yix2k: they need to be set to pk though
+msabren: and it used to be blogpostsID
+yix2k: i forgot that part
+yix2k: something liket hat
+msabren: ok
+yix2k: entryid
+msabren: so in that sense, yes, we have two "ID" columns
+msabren: but that's just an artifact of our cleanup effort
+yix2k: right
+yix2k: so i should be using the one i created?
+msabren: yes
+msabren: but you don't have to mention them in the map
+msabren: you put the ID in the class itself
+msabren: does that make sense?
+msabren: we actually do want to call   clerk.fetch(Blog, ID=134)
+yix2k: so then all i have to do is blog: "blogs" and post" "
+yix2k: : "blogposts"
+yix2k: ?
+msabren: but once we have that, we don't want to deal with sql and joins
+msabren: to get the posts for that blog, we don't worry about the foreign key
+msabren: we just say:       blog.posts
+msabren: the Clerk will automatically load the right posts for us
+msabren: but under the hood it has to know "which column in the posts table tells me which blog it belongs to?"
+msabren: there's no way to deduce that information, so we have to state it explicitly in the dbmap
+msabren: so again:
+msabren: Blog : "blogs"
+msabren: Post : "blogposts"
+msabren: Post.blog : "blogid"
+yix2k: so we're not going to use id, we;re going to use blogid
+msabren: if you know Post.blog, you can deduce Blog.posts
+yix2k: right
+msabren: yes
+yix2k: ok got it
+msabren:  :)
+
