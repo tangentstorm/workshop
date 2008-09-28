@@ -7,6 +7,11 @@ import re
 import unittest
 import warnings
 
+_eggData = {
+   'version': '0.9.1a',
+   'description': 'smart data objects with run-time type checking',
+}
+
 
 Unspecified = object() # just a type distinct from None
 
