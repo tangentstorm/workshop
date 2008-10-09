@@ -4,59 +4,24 @@ Set Up Your Development Environment
 
 install dependencies
 --------------------
-python
 
-setuputils
+python - http://python.org/
 
-subversion (for now)
+setuputils - http://peak.telecommunity.com/dist/ez_setup.py
 
-easy_install Paste PasteConfig CherryPy 
-
-easy_install Sphinx Pygments
-
-easy_install MySQL-python
-
-easy_install Genshi
+::
+    easy_install Paste PasteConfig CherryPy 
+    easy_install Sphinx Pygments
+    easy_install MySQL-python
+    easy_install Genshi
 
 
+Install the workshop itself
+---------------------------
 
-create the application skeleton
--------------------------------
+subversion (needed for now) - http://subversion.tigris.org/
+or better yet, from http://cygwin.org/
 
-**directory structure** ::
-
-    mkdir sites/$APPNAME
-    cd sites/$APPNAME
-
-    mkdir spec
-    mkdir tests
-    mkdir model
-    mkdir theme
-    mkdir theme/default
-
-
-**main module:** $APPNAME.py ::
-
-    __version__="$version$"
-
-**paste config file:** $APPNAME.app ::
-
-    __version__="$version$"
-
-**RESTful API:** restful.py ::
-
-    from platonic import REST,URI
-    api = REST(
-        URI("/", GET= lambda: handler)
-    )
-
-
-**database map:** dbmap.py
-
-**default layout:** theme/default/layout.gen
-
-
-
-Set up Version Control
-----------------------
+::
+   svn co https://secure.sabren.com/svn/workshop/trunk workshop-trunk
 

@@ -13,6 +13,10 @@ see how the webAppWorkshop can work for you.
    :maxdepth: 2
    
    moduledocs/index
+
+.. toctree::
+   :maxdepth: 3
+
    whipupawebapp/index
 
 
