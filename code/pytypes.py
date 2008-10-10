@@ -1,17 +1,16 @@
 """
 python types
 """
-
-
-# * imports - required
+__all__=['Date','DateTime','Decimal','EmailAddress']
 import re
 import calendar
 import copy
 import time
 import unittest
 from narrative import testcase
+from decimal import Decimal
+from OrderedDict import OrderedDict as IdxDict
 
-# * imports - optional
 try:
     import mx.DateTime as mxDateTime
 except ImportError:
@@ -24,10 +23,7 @@ except ImportError:
 
 
 
-# * FixedPoint --> replace with 'decimal'
-from FixedPoint import FixedPoint
 # * DateTime --> replace with datetime.datetime ?
-# ** test
 class DateTimeTest(unittest.TestCase):
 
     def test_add(self):
@@ -91,7 +87,6 @@ class DateTimeTest(unittest.TestCase):
         temporarily set time.time() to return 10/19/2001
         and test for today.
         """
-        import time
         _time = time.time
         time.time = lambda: 1003539807.89
         try:
@@ -143,7 +138,7 @@ class DateTimeTest(unittest.TestCase):
         except ImportError:
             print "[mxDate not installed, skipping test...]"
 
-# ** code
+
 class DateTime:
     """
     A class to represent datetimes.
@@ -256,8 +251,9 @@ class DateTime:
         assert datetime, "datetime is requried here"
         return datetime.datetime(self.y, self.m, self.d,
                                  self.hh, self.mm, self.ss)
+
+
 # * Date --> replace with datetime.date ?
-# ** test
 class DateTest(unittest.TestCase):
 
     def test_add(self):
@@ -325,7 +321,7 @@ def test_toDate(self):
     assert Date("1/1/2000").toDate() == Date("1/1/2000")
 
 
-# ** code
+
 class Date(DateTime):
     """
     A class to represent dates.
@@ -365,8 +361,9 @@ class Date(DateTime):
 
     def __repr__(self):
         return "Date('%s')" % self.toUS()
-# * Ranges
-# ** Range
+
+
+
 class Range(object):
 
     def __init__(self, left, right):
@@ -376,7 +373,9 @@ class Range(object):
     def __contains__(self, item):
         raise NotImplementedError(
             "use a Range subclass instead")
-# ** ExclusiveRange
+
+
+
 class ExclusiveRangeTest(unittest.TestCase):
     def test(self):
         erange = ExclusiveRange(1, 3)
@@ -388,7 +387,7 @@ class ExclusiveRange(Range):
 
     def __contains__(self, item):
         return self.left < item < self.right
-# ** InclusiveRange
+
 
 class InclusiveRangeTest(unittest.TestCase):
     def test(self):
@@ -402,7 +401,8 @@ class InclusiveRange(Range):
     def __contains__(self, item):
         return self.left <= item <= self.right
     
-# ** PythonicRange
+
+
 class PythonicRangeTest(unittest.TestCase):
     def test(self):
         prange = PythonicRange(1, 3)
@@ -414,7 +414,8 @@ class PythonicRange(Range):
     def __contains__(self, item):
         return self.left <= item < self.right
     
-# * toDate --> move to handy?
+
+
 def toDate(thing):
     """
     ensures that a date is a Date object
@@ -424,7 +425,8 @@ def toDate(thing):
     else:
         return Date(thing)
     
-# * toDateTime --> same?
+
+
 def toDateTime(thing):
     """
     ensures that a datetime is a DateTime object
@@ -434,7 +436,7 @@ def toDateTime(thing):
     else:
         return DateTime(thing)
     
-# * dateRange --> ?
+
 def dateRange(date1, date2):
     """
     returns a tuple of Date objects between two dates (inclusive)
@@ -450,8 +452,8 @@ def dateRange(date1, date2):
         d += 1
     
     return tuple(dates)
-# * IdxDict
-from OrderedDict import OrderedDict as IdxDict
+
+
 # * EmailAddress
 def email(s):
     try:
