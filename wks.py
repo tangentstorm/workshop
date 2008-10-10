@@ -4,7 +4,9 @@ wks - command line tool for webAppWorkshop
 from __future__ import with_statement
 from contextlib import contextmanager
 import os, sys
-from handy import trim
+import __main__
+from handy import trim, genshiText, xml, indent
+
 
 @contextmanager
 def outstream(filename, mode="w"):
@@ -79,13 +81,16 @@ def init(appname):
                         dbpass=appname))
 
 
+    with outstream("model/__init__.py", "a") as out:
+        out('')
+
     with outstream("dispatch.py") as out:
         out(trim(
             """
             import %s as app
             from platonic import REST,URI
             
-            api = REST(
+            urlmap = REST(
                 URI("/", GET= lambda: handler)
             )
             """) % (appname))
@@ -163,7 +168,12 @@ def addToSQL(sql):
     with outstream("%s.sql" % currentAppName(), "a") as out:
         out(sql)
 
-def model(className, tableName):
+
+def modelClassExists(className):
+    return os.path.exists("model/%s.py" % className)
+
+
+def addToModel(className, tableName=None):
     """
     Adds a class to the model.
     """
@@ -171,10 +181,11 @@ def model(className, tableName):
     if not className[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
         raise SystemExit("class must start with uppercase letter")
 
-    if os.path.exists("model/%s.py" % className):
+    if modelClassExists(className):
         raise SystemExit("class %s.model.%s already exists."
                          % (appname, className))
 
+    tableName = tableName or className.lower()
     addToSQL(trim(
         '''
         CREATE TABLE %s (
@@ -209,11 +220,11 @@ def model(className, tableName):
         out(trim(
             """
             from strongbox import *
+            from pytypes import *
             import model
             
             class %s(Strongbox):
                 ID = attr(long)
-
             """) % className)
 
     with outstream("model/__init__.py", "a") as out:
@@ -251,15 +262,16 @@ def expectModelClass(name):
     if not os.path.exists("model/%s.py" % name):
         raise SystemExit("class %s not found in model" % name)
 
-def addLinkset(parent, linksetName, child, backlink):
+def addLinkset(parent, linksetName, child, backlink=None):
     expectModelClass(parent)
     expectModelClass(child)
+    #@TODO: auto-generate a test case for linkset
     with outstream("model/%s.py" % parent, "a") as out:
         out('    %s = linkset(lambda: model.%s, "%s")\n'
             % (linksetName, parent, backlink))
         
-    #@TODO: auto-generate a test case for linkset         
-    addLink(child, backlink, parent)
+    if backLink:
+        addLink(child, backlink, parent)
 
 
 def addLink(fromClass, linkName, toClass):
@@ -278,29 +290,69 @@ def addLink(fromClass, linkName, toClass):
 
 
 
+
+code_for_attr = genshiText(
+    "$name = attr($type${', default=%s' % default if default else ''})\n")
+
+
+def fromXMI(filename):
+    """
+    generates workshop-flavored python from xmi
+    """
+    NS = {
+        "xmi": "http://schema.omg.org/spec/XMI/2.1",
+        "uml": "http://schema.omg.org/spec/UML/2.0",
+    }
+    doc = xml(open(filename).read())
+
+    for node in doc.xpath("//@xmi:type[string()='uml:Class']/..", NS):
+        className = node.xpath("string(@name)")
+
+        if modelClassExists(className):
+            print "skipping existing class %s" % className
+
+        else:
+            addToModel(className, className.lower())
+            with outstream("model/%s.py" % className, 'a') as out:
+                for attr in node.xpath("ownedAttribute"):
+                    out(indent(code_for_attr(
+                            name = attr.xpath("string(@name)"),
+                            type = attr.xpath('string(@type)')[:-3] or 'str',
+                            default = attr.xpath('string(defaultValue/@value)'))))
+
+            print "added class %s" % className
+    
+
 def expectArg(argv, index, msg):
     try:
         return argv[index]
     except:
         raise SystemExit("usage: %s" % msg)
 
-def main(argv):
-    cmds = {
-        'init':   lambda argv:  init(expectArg(argv, 2, "init APPNAME")),
-        
-        'model':  (lambda argv:
-                   model(expectArg(argv, 2, "model CLASSNAME TABLE"),
-                         expectArg(argv, 3, "model CLASSNAME TABLE"))),
+def allowArg(argv, index):
+    return argv.get(index)
 
-        'link':   (lambda argv, usage="link FROMCLASS LINKNAME TOCLASS":
-                    addLink(*[expectArg(argv, 2+i, usage)
-                              for i,slot in enumerate(usage.split()[1:])])),
-        
-        'linkset': (lambda argv, usage="linkset PARENT LINKS CHILD BACKLINK":
-                    addLinkset(*[expectArg(argv, 2+i, usage)
-                                 for i,slot in enumerate(usage.split()[1:])])),
-    }
-    usage = "usage: wks [ %s ]" % (' | '.join(cmds.keys()))
+def makeArgParser(usage):
+    args = usage.split()
+    cmd  = args[0]
+    func = getattr(__main__, cmd)
+    return cmd, lambda argv: func(*[
+        allowArg(argv, 2+i) if slot.startswith("[")
+        else expectArg(argv, 2+i, usage)
+        for i,slot in enumerate(args[1:])])
+
+
+def main(argv):
+    cmds = dict(makeArgParser(line) for line in trim(
+        """
+        init appname
+        addToModel ClassName [tableName]
+        addLink  FromClass linkName ToClass
+        addLinkset ParentClass linksetName ChildClass [backLinkName]
+        fromXMI filename
+        """).split('\n') if line)
+
+    usage = "usage: wks [ %s ]" % (' | '.join(sorted(cmds.keys())))
     cmd = expectArg(argv, 1, usage)
     if cmd in cmds:
         cmds[cmd](argv)
