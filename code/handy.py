@@ -265,3 +265,20 @@ def xmlEncode(s):
         else:
             res = res + ch
     return res
+
+
+class Proxy(object):
+    def __init__(self, obj):
+        self.__dict__['obj'] = obj
+
+    def __getattr__(self, slot):
+        return getattr(self.obj, slot)
+
+    def __getitem__(self, slot):
+        return self.obj[slot]
+
+    def __setattr__(self, slot, value):
+        setattr(self.obj, slot, value)
+
+    def __setitem__(self, slot, value):
+        self.obj[slot] = value

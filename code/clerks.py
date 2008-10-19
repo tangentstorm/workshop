@@ -2,9 +2,11 @@
 """
 clerk: an object-relational mapper
 """
+from __future__ import with_statement
 import operator
 from strongbox import *
 from storage import MockStorage
+from handy import Proxy
 
 class _EMPTY_LINK:
     """
@@ -26,6 +28,7 @@ def _linksAndValues(obj):
             # A: Nope. Remember that these linked objects may be stubs
             # that only contain the ID. As long as we only look at ref.ID,
             # this won't load data un-necessarily.
+
 
 class Cache(object):
     """
@@ -604,4 +607,39 @@ class Schema(object):
 ##             raise ClerkError, "no mapping found for %s.%s" \
 ##                   % (klass.__name__, name)
 
+
+
+
+#@TODO: rename this to boxcontext?
+#@TODO: with clerk.match() as each :
+class BoxClerkProxy(Proxy):
+    """
+    This is a context that allows you to write:
+
+    with (whatever):
+        obj.xxx
+
+    and it automatically calls clerk.store(obj) at the end.
+
+    """
+
+    def __init__(self, clerk, obj):
+        super(BoxClerkProxy, self).__init__(obj)
+        self.__dict__['clerk'] = clerk
+        self.__dict__['stored'] = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if type is None:
+            self.clerk.store(self.obj)
+            self.__dict__['stored'] = True
+        else:
+            raise type(value)
+
+    #@TODO: double check meaning of "thunk"
+    def with_do(self, thunk):
+        with self:
+            thunk(self.obj)
 

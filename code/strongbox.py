@@ -526,3 +526,14 @@ class BoxView:
         return [k for k, v in self.object.getSlots()]
 
 
+
+#@TODO: break this into individual rule objects that you can register
+def asinstance(thing, klass):
+    if isinstance(thing, klass):
+        return thing
+    elif isinstance(thing, dict):
+        return klass(**thing) # @TODO: only works for strongboxen
+    else:
+        raise TypeError("expected a %s, got %s (%s)"
+                        % (self.klass, type(instance), instance))
+

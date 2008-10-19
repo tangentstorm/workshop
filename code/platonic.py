@@ -210,3 +210,37 @@ class AbstractApp(object):
 
 App = AbstractApp
 
+
+class Resource(object):
+    pass
+
+
+class BoxClerkResource(Resource):
+    """
+    Restful interface to a single Strongbox class in a clerk.
+    """
+    def __init__(self, clerk, klass):
+        self.clerk = clerk
+        self.klass = klass
+
+    def match(self, *args, **kw):
+        return self.clerk.match(self.klass, *args, **kw)
+
+    def __len__(self):
+        return len(self.match())
+
+    def __getitem__(self, key):
+        return BoxClerkProxy(self.clerk, self.clerk.fetch(self.klass, key))
+
+    def __delitem__(self, key):
+        return self.clerk.delete(self.klass, key)
+
+    def __iter__(self):
+        return iter(self.match())
+
+    def __lshift__(self, instance):
+        """
+        stores an instance of self.klass on <<<
+        """
+        self.clerk.store(asinstance(instance, self.klass))
+        
