@@ -1,23 +1,30 @@
-from arlo import QueryBuilder
 from storage import *
-
+from narrative import testcase
+from warnings import warn
+from handy import trim
+from wherewolf import where
 import unittest
 
 class StorageTest(unittest.TestCase):
 
-    def test_oldmatch(self):
+    def test_oldmatch_where(self):
         class OldMatcher(Storage):
             def _match(self, table, whereClause, orderBy):
                 self.clause = whereClause
         o = OldMatcher()
         o.match("blah", ID=5)
-        self.assertEquals( str(o.clause), "(ID = '5')")
+        self.assertEquals( toSQL(o.clause), toSQL(where.ID==5))
 
 
 class RamStorageTest(unittest.TestCase):
 
     def setUp(self):
         self.s = RamStorage()
+
+    def test_quotes(self):
+        self.s.store("test_person", name="sally o'malley")
+        self.assertEquals(1, len(self.s.match("test_person",
+                                              name="sally o'malley")))
 
     def test_store_insert(self):
         row = self.s.store("test_person", name="fred")
@@ -49,7 +56,7 @@ class RamStorageTest(unittest.TestCase):
 
     def test_oldmatch(self):
         self.test_store_insertExtra()
-        match = self.s.match("test_person", where("ID")==2)
+        match = self.s.match("test_person", where.ID==2)
         assert match[0]["name"] == "wanda", "new style broke"
         match = self.s.match("test_person", ID=2)
         assert match[0]["name"] == "wanda", "old style broke"
@@ -57,29 +64,26 @@ class RamStorageTest(unittest.TestCase):
 
     def test_querybuilder_matches(self):
         self.test_store_insertExtra()
-        match = self.s.match("test_person", where("ID")==5 )
+        match = self.s.match("test_person", where.ID==5 )
         assert match[0]['name'] == 'jack'
 
-        match = self.s.match("test_person", ( ( where("name")=="fred" )
-                                         |  ( where("name")=="bob" ) ), "name")
+        match = self.s.match("test_person",
+                            ( where.name=="fred" ) | ( where.name=="bob" ) ,
+                              orderBy="name")
         self.assertEquals([u['name'] for u in match],
                           ['bob','fred'])
             
-        
-        
-        match = self.s.match("test_person", ((where("ID") > 1)
-                                             &(where("ID") <= 4))
-                                           |(where("name").endswith('ck')),
-                                         'name desc')
-        self.assertEquals( [u['name'] for u in match],
-                           ['wanda', 'rick', 'jack', 'bob'] )
 
+        clause = (where.ID > 1) & (where.ID <=4) | (where.name % '%ck')
+        match = self.s.match("test_person", clause, orderBy='name desc')
+        self.assertEquals( [u['name'] for u in match],
+                           ['wanda', 'rick', 'jack', 'bob'])
 
 
     def test_querybuilder_sorting(self):
         self.test_store_insertExtra()
-        assert [p['name'] for p in self.s.match("test_person", orderBy='name')
-                ] == ['bob', 'fred', 'jack', 'rick', 'wanda']
+        self.assertEquals(['bob', 'fred', 'jack', 'rick', 'wanda'],
+                          [p['name'] for p in self.s.match("test_person", orderBy='name')])
 
     def populate(self):
         self.test_store_insert()
@@ -98,16 +102,17 @@ class RamStorageTest(unittest.TestCase):
     def test_store_update_longs(self):
         # same as above but with lnogs
         self.populate()
-        row = self.s.fetch("test_person", 1L)
+        row = self.s.fetch("test_person", 1)
         row["name"] = "frood"
         self.s.store("test_person", **row)
-        assert self.wholedb() == [{"ID":1, "name":"frood"},
-                                  {"ID":2, "name":"wanda"}]        
+        self.assertEquals(self.wholedb(),
+                          [{"ID":1, "name":"frood"},
+                           {"ID":2, "name":"wanda"}])        
 
     def test_store_update_strings(self):
         # same as above but with lnogs
         self.populate()
-        row = self.s.fetch("test_person", "1")
+        row = self.s.fetch("test_person", 1)
         row["name"] = "frood"
         self.s.store("test_person", **row)
         assert self.wholedb() == [{"ID":1, "name":"frood"},
@@ -116,7 +121,7 @@ class RamStorageTest(unittest.TestCase):
     def test_match(self):
         assert self.wholedb() == []
         self.populate()
-        results = self.s.match("test_person", where("ID") == 1)
+        results = self.s.match("test_person", where.ID == 1)
         assert results == [{"ID":1, "name":"fred"}], str(results)
 
     def test_fetch(self):
@@ -161,13 +166,6 @@ class MySQLStorageTest(RamStorageTest):
               db='test')
     """
     def setUp(self):
-        try:
-            import sqlTest
-            self.skip = False
-        except ImportError:
-            warnings.warn("skipping MySQL tests: no sqlTest module")
-            self.skip = True
-            return
         dbc = sqlTest.connect()
         self.s = MySQLStorage(dbc)
         cur = dbc.cursor()
@@ -185,11 +183,9 @@ class MySQLStorageTest(RamStorageTest):
         except:
             pass
 
-            
     # @TODO: test for Sets
 
     def test_store_quotes(self):
-        if self.skip : return
         self.populate()
         row = self.s.fetch("test_person", 1)
         row["name"] = "j'mo\"cha's'ha''ha"
@@ -228,4 +224,12 @@ class PySQLiteStorageTest(RamStorageTest):
         
 
 if __name__ == '__main__':
+
+    try:
+        import sqlTest
+    except ImportError:
+        print ("MySQL tests skipped.")
+        print MySQLStorageTest.__doc__
+        del MySQLStorageTest
+
     unittest.main()

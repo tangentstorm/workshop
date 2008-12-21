@@ -1,4 +1,5 @@
-from arlo import _, declare
+from arlo import *
+from arlo import _
 import unittest
 
 class QueryBuilderTest(unittest.TestCase):
@@ -49,6 +50,27 @@ class QueryBuilderTest(unittest.TestCase):
         rep( _.x.meth    , "_.x.meth")
         rep( _.x.meth(2) , "_.x.meth(_(2))")
 
+    def test_declare(self):
+        assert declare("a b c") == "a,b,c = _.a,_.b,_.c"
+
+    def test_in(self):
+        """
+        Would have been nice to have an 'in' operator,
+        but apparently __contains__ is always coerced into
+        a boolean, no matter what it returns. :/
+        """
+        class Group(object):
+            def __contains__(self, x):
+                return "asdfghjk"
+
+        assert (52 in Group()) is True, str(52 in Group())
+
+
+    def test_pattern(self):
+        assert pattern(_) == ()
+        self.assertEquals( (StartExpr(), Name('x'))
+                         , pattern(_.x))
+        
     def test_megaParse(self):
 
         exec declare("data sig let IO Num Ord Str undefined where" )
@@ -64,15 +86,15 @@ class QueryBuilderTest(unittest.TestCase):
 
             let. myTree == _.Branch(_.Plus) .Leaf(2) .Leaf(2),
 
-            sig. myAdd >> Num >> Num ,
+            sig. myAdd == Num >> Num ,
             let. myAdd ( _ , 0 ) == 0,
             let. myAdd ( x , 0 ) == x,
 
-            sig. fact >> Num >> Num,
+            sig. fact == Num >> Num,
             let. fact ( 0 ) == 1 ,
             let. fact ( x ) == x * _.fact( x -1 ),
 
-            sig. qsort >> Ord.a >> [a] >> [a] ,
+            sig. qsort == Ord.a >> [a] >> [a] ,
             let. qsort (  []     ) == [] ,
             let. qsort ( _[p:xs] ) == ( _.qsort.lesser + [p] + _.qsort.greater ,
                 where (
