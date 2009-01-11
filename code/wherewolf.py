@@ -28,7 +28,9 @@ _sqlDispatch={
 ,   CallExpr : lambda f, a, b    : '%s(%s)' % (f(a), f(b))
 #   SubExpr ?
 ,   Name     : lambda f, a       : str(a)
-,   Const    : lambda f, a       : repr(a).replace('L','') if type(a)==long else repr(a)
+,   Const    : lambda f, a       : (repr(a).replace('L','') if type(a)==long
+                                    else ("'%s'" % a.replace("'","''")) if type(a) in (str, unicode)
+                                    else repr(a))
 }
 
 
@@ -48,6 +50,8 @@ def pyLike(f, a, b):
 _pyDispatch = deepcopy(_sqlDispatch)
 _pyDispatch[Expr]= lambda f, a, o, b : pyLike(f, a, b) if o == '%' \
                                        else '(%s %s %s)' % (f(a), o, f(b))
+
+_pyDispatch[Const]= lambda f, a : repr(a).replace('L','') if type(a)==long else repr(a)
 
 
 # Expr -> str
