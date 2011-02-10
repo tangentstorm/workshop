@@ -13,6 +13,7 @@
 import new
 import inspect
 import unittest
+import warnings
 
 # * Code that Explains Where it Came From
 """
@@ -512,13 +513,19 @@ except to return the new function as-is.</p>
 
 def replace(f):
     
-    # grab the callling context's local dictionary off the stack
-    calling_context = inspect.stack()[1][0].f_locals # ick :)
+    try:
+        # grab the callling context's local dictionary off the stack
+        calling_context = inspect.stack()[1][0].f_locals # ick :)
 
-    # and make sure the function already exists
-    if not calling_context.has_key(f.__name__):
-        raise NameError("can't replace nonexistent function %s" % f.__name__)
-
+        # and make sure the function already exists
+        if not calling_context.has_key(f.__name__):
+            raise NameError("can't replace nonexistent function %s"
+                            % f.__name__)
+    except TypeError:
+        # for some reason, the pydev debugger messes this up,
+        # so for now, just ignore it and hope it's okay. ;)
+        pass
+    
     # python handles the rest:
     return f
 
