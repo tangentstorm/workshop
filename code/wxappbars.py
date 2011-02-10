@@ -24,6 +24,12 @@ With help from:
 
 (Which did the same thing, but doesn't seem to work anymore, as of python 2.7
 and wxPython 2.8.11)
+
+@TODO: implement all the rest of this stuff here:
+
+http://msdn.microsoft.com/en-us/library/bb776821.aspx
+
+
 """
 from ctypes import wintypes
 from ctypes import *
@@ -87,7 +93,6 @@ class RegisterInfo(object):
         self.originalStyle = None
         self.originalPosition = None
         self.originalSize = None
-        self.originalResizeMode = None
 
 
     @property
@@ -107,6 +112,7 @@ class RegisterInfo(object):
         if msg == win32con.WM_DESTROY:
             self._restoreOldWndProc()
         elif msg == self.callbackId:
+            print "IN HERE"
             if wParam == ABNotify.ABN_POSCHANGED:
                 _ABSetPos(self.edge, self.window)
         else:
@@ -142,7 +148,6 @@ def _RestoreWindow(appbarWindow):
     appbarWindow.SetWindowStyle(info.originalStyle)
     appbarWindow.SetPosition(info.originalPosition)
     appbarWindow.SetSize(info.originalSize)
-    appbarWindow.SetResizeMode(info.originalResizeMode)
 
 def SetAppBar(appbarWindow, edge):
 
@@ -156,13 +161,17 @@ def SetAppBar(appbarWindow, edge):
         shell32.SHAppBarMessage(ABMsg.ABM_REMOVE, PAPPBARDATA(abd))
         info.isRegistered = False
         _RestoreWindow(appbarWindow)
+        return
 
     elif not info.isRegistered:
         info.isRegistered = True
         info.callbackId = win32api.RegisterWindowMessage("AppBarMessage")
         shell32.SHAppBarMessage(ABMsg.ABM_NEW, PAPPBARDATA(abd))
 
-    appbarWindow.SetWindowStyle(wx.BORDER_NONE | wx.STAY_ON_TOP)
+    appbarWindow.SetWindowStyle(
+        wx.FRAME_NO_TASKBAR |
+        wx.CLIP_CHILDREN |
+        wx.STAY_ON_TOP )
     _ABSetPos(info.edge, appbarWindow)
 
 
@@ -202,6 +211,17 @@ def _ABSetPos(edge, appbarWindow):
 
 
     shell32.SHAppBarMessage(ABMsg.ABM_QUERYPOS, PAPPBARDATA(barData))
+
+    # http://msdn.microsoft.com/en-us/library/bb776821.aspx
+    if barData.uEdge == ABEdge.Left:
+        barData.rc.right = barData.rc.left + winW
+    elif barData.uEdge == ABEdge.Right:
+        barData.rc.left = barData.rc.right - winW
+    elif barData.uEdge == ABEdge.Top:
+        barData.rc.bottom = barData.rc.top + winH
+    elif barData.uEdge == ABEdge.Bottom:
+        barData.rc.top = barData.rc.bottom - winH
+
     shell32.SHAppBarMessage(ABMsg.ABM_SETPOS, PAPPBARDATA(barData))
 
 
@@ -210,8 +230,9 @@ def _ABSetPos(edge, appbarWindow):
         appbarWindow.SetSize((barData.rc.right - barData.rc.left,
                               barData.rc.bottom - barData.rc.top))
 
-    # This is done async, because windows will send a resize after a new appbar is added.
-    # if we size right away, the windows resize comes last and overrides us.
+    # This is done async, because windows will send a resize
+    # after a new appbar is added. if we size right away, the
+    # windows resize comes last and overrides us.
     wx.CallAfter(_resize)
 
 
