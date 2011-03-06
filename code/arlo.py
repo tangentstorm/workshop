@@ -67,6 +67,7 @@ You can declare large numbers of reified identifiers
 with: exec arlo.declare(names), where names is just
 a string full of identifiers separated by spaces.
 
+>>> import arlo
 >>> arlo.declare('a b c')
 'a,b,c = _.a,_.b,_.c'
 >>> exec arlo.declare('a b c')
@@ -94,9 +95,8 @@ Note the capitalization on the word 'Is'.
 You have to be careful about reserved words!
 
 >>> _.this .is .not
-  File "<stdin>", line 1
-    _.this .is .not
-             ^
+Traceback (most recent call last):
+    ...
 SyntaxError: invalid syntax
 
 
@@ -197,12 +197,13 @@ class Expr(object):
         if arity == 3: return (self.left, self.op, self.right)
 
     def _wrap(self, other, wrapper):
-        if type(other) == tuple: return tuple(self._wrap(x,wrapper) for x in other)
+        if type(other) == tuple: return tuple(
+            self._wrap(x,wrapper) for x in other)
         else: return other if wrapped(other) else wrapper(other)
 
-    # (bool, str) -> Expr
-    def _build(self, op, other):
-        return Expr(self, op, self._wrap(other, Const))
+    # (sym, object) -> Expr
+    def _build(self, sym, other):
+        return Expr(self, sym, self._wrap(other, Const))
     
     def __repr__(self):
         return '(%r %s %r)' % (self.left, self.op, self.right)
@@ -215,7 +216,8 @@ class Expr(object):
 
     def __call__(self, *others, **kw):
         if kw: warn("keyword arguments don't work yet! (%s)" % kw)
-        return CallExpr(self, tuple(self._wrap(other, Const) for other in others))
+        return CallExpr(self, tuple(self._wrap(other, Const)
+                                    for other in others))
 
     def __getattr__(self, other):
         return DotExpr(self, self._wrap(other, Name))
@@ -223,29 +225,67 @@ class Expr(object):
     def __getitem__(self, other):
         return SubExpr(self, self._wrap(other, Name))
 
-##     def __contains__(self, other):
-##         '''
-##         note operators are reversed
-##         '''
-##         return Expr(self._wrap(other, Const), 'in', self)
 
+    ## not-so magic method combinators (see lava code below)
 
+    def __eq__(self, other):
+        return self._build('==', other)
+    def __ne__(self, other):
+        return self._build('!=', other)
+    def __lt__(self, other):
+        return self._build('<', other)
+    def __gt__(self, other):
+        return self._build('>', other)
+    def __le__(self, other):
+        return self._build('<=', other)
+    def __ge__(self, other):
+        return self._build('>=', other)
+    def __and__(self, other):
+        return self._build('&', other)
+    def __or__(self, other):
+        return self._build('|', other)
+    def __xor__(self, other):
+        return self._build('^', other)
+    def __lshift__(self, other):
+        return self._build('<<', other)
+    def __rshift__(self, other):
+        return self._build('>>', other)
+    def __add__(self, other):
+        return self._build('+', other)
+    def __sub__(self, other):
+        return self._build('-', other)
+    def __mul__(self, other):
+        return self._build('*', other)
+    def __div__(self, other):
+        return self._build('/', other)
+    def __mod__(self, other):
+        return self._build('%', other)
+    def __pow__(self, other):
+        return self._build('**', other)
+    def __floordiv__(self, other):
+        return self._build('//', other)
+    
 ## build the magic method combinators ################################
 
-# Op Str , Sym str , arity -> (QueryExpr, QueryExpr -> QueryExpr)
-def _makeMagic(op, sym, arity=2):
-    if arity == 1:
-        pass # @TODO: magic Unary operators
-    else:
-        def magic(self, other):
-            return self._build(sym, other)
-    return magic
+## this stopped working somewhere between python 2.5 and 2.7
+## @TODO: get this working again for modern python.
+    
+# # Op Str , Sym str , arity -> (QueryExpr, QueryExpr -> QueryExpr)
+# def _makeMagic(op, sym, arity=2):
+#     if arity == 1:
+#         pass # @TODO: magic Unary operators
+#     else:
+#         def magic(self, other):
+#             return self._build(sym, other)
+#     return magic
         
 
-for op, sym in biOps.items():
-    magicMethod = "__%s__" % op.lower()
-    if not hasattr(Expr, magicMethod):
-        setattr(Expr, magicMethod, _makeMagic(op, sym, 2))
+# for op, sym in biOps.items():
+#     magicMethod = "__%s__" % op.lower()
+#     print "making ", magicMethod
+#     if not hasattr(Expr, magicMethod):
+#         setattr(Expr, magicMethod, _makeMagic(op, sym, 2))
+
 
 
 
@@ -255,7 +295,8 @@ for op, sym in biOps.items():
 class SuffixExpr(Expr):
     _symbol = ' '
     def __init__(self, left, right):
-        super(SuffixExpr,self).__init__(left, self._symbol, self._wrap(right, Name))
+        super(SuffixExpr,self).__init__(
+            left, self._symbol, self._wrap(right, Name))
         self.arity = 2
 
 # | DotExpr Expr Expr
@@ -284,7 +325,7 @@ class SubExpr(SuffixExpr):
         right = self.right if type(self.right) == tuple else (self.right,)
         return '%r[%r]' % (self.left, ','.join(repr(s) for s in right))
     def __str__(self):
-        right = self.right if type(self.right) == tuple else (self.right,)        
+        right = self.right if type(self.right) == tuple else (self.right,)
         return '%s[%s]' % (self.left, ','.join(str(s) for s in right))
 
 
@@ -355,3 +396,8 @@ def transform(f, dispatch, ex):
     """
     return dispatch[ex.__class__](f, *pattern(ex))
 
+
+if __name__=="__main__":
+    import arlo
+    import doctest
+    doctest.testmod()

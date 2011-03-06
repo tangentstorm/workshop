@@ -7,6 +7,26 @@ class QueryBuilderTest(unittest.TestCase):
     def want(self, clause, goal, format=str):
         self.assertEquals(format(clause), goal)
 
+    def test_type(self):
+        """
+        The most basic property of our system is that
+        all expressions are reified. So here, _(0)<_(1)
+        should evaluate to an Expr, NOT a boolean.
+        
+        Overriding __lt__ (and the other magic methods
+        specified at http://docs.python.org/library/operator.html)
+        should do the trick. The docs specifically say:
+
+        > Note that unlike the built-in cmp(), these functions
+        > can return any value, which may or may not be interpretable
+        > as a Boolean value.
+
+        This was working fine in the original arlo, built with
+        python 2.5, but was broken by 2.7. So this first one
+        is also a regression test.
+        """
+        assert type(_(0) < _(1)) != bool
+
     def test_Const(self):
         self.want(_(5), "5")
 
