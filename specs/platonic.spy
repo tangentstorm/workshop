@@ -1,3 +1,4 @@
+from platonic import REST, URI
 
 def testapp():
     app= REST(

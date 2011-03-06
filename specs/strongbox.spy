@@ -443,8 +443,11 @@ def test_custom_getter(test):
 You can even have virtual members that aren't actually
 stored, for example:
 """
-
-import crypt
+try:
+    from crypt import crypt
+except ImportError:
+    from md5crypt import unix_md5_crypt as crypt
+    
 @narr.testcase
 def test_setter(test):
     class User(Strongbox):
