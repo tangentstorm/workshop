@@ -1,7 +1,8 @@
 """
 python types
 """
-__all__=['Date','DateTime','Decimal','EmailAddress']
+# TODO: replace with modern DateTime stuff from stdlib
+__all__ = ['Date', 'DateTime', 'Decimal', 'EmailAddress']
 import re
 import calendar
 import copy
@@ -9,7 +10,6 @@ import time
 import unittest
 from narrative import testcase
 from decimal import Decimal
-from OrderedDict import OrderedDict as IdxDict
 
 try:
     import mx.DateTime as mxDateTime
@@ -20,7 +20,6 @@ try:
     import datetime
 except ImportError:
     datetime = None
-
 
 
 # * DateTime --> replace with datetime.datetime ?
@@ -68,7 +67,7 @@ class DateTimeTest(unittest.TestCase):
         assert DateTime("1/2/2002 1:23:45") - 366 \
                == DateTime("1/1/2001 1:23:45"), \
                "subtracting more than a year didn't work"
-        
+
     def test_convert(self):
         assert Date("1/2/2002") == DateTime("1/2/2002 0:0:0")
 
@@ -112,7 +111,7 @@ class DateTimeTest(unittest.TestCase):
         assert DateTime("1/1/2001").daysInMonth() == 31
         assert DateTime("2/1/2001").daysInMonth() == 28
         assert DateTime("2/1/2000").daysInMonth() == 29
-        
+
     def test_daysInYear(self):
         assert DateTime("1/1/1999").daysInYear() == 365
         assert DateTime("1/1/2000").daysInYear() == 366 # leap year
@@ -126,8 +125,8 @@ class DateTimeTest(unittest.TestCase):
             mxNow = dtNow.toMx()
             assert mxNow == mx.DateTime.DateTime(2000,1,1)
         except ImportError:
-            print "[mxDate not installed, skipping test...]"
-            
+            print("[mxDate not installed, skipping test...]")
+
 
     def test_to_datetime(self):
         try:
@@ -136,7 +135,7 @@ class DateTimeTest(unittest.TestCase):
             pyNow = dtNow.to_datetime()
             assert pyNow == datetime.datetime(2000,1,1)
         except ImportError:
-            print "[mxDate not installed, skipping test...]"
+            print("[mxDate not installed, skipping test...]")
 
 
 class DateTime:
@@ -154,8 +153,8 @@ class DateTime:
                            or isinstance(s, datetime.date)):
             s = s.strftime("%Y-%m-%d %H:%M:%S")
         elif type(s) != str:
-            raise TypeError, "usage: DateTime(string) (got %s)" % type(s)
-        
+            raise TypeError("usage: DateTime(string) (got %s)" % type(s))
+
         if s == "now":
             s = "%04i-%02i-%02i %02i:%02i:%02i" \
                 % time.localtime(time.time())[:6]
@@ -186,12 +185,12 @@ class DateTime:
         from operator import add
         return reduce(add,
                       [calendar.monthrange(self.y, m+1)[1] for m in range(12)])
-        
+
     def toSQL(self):
         return "%i-%i-%i %i:%i:%i" % (self.y, self.m, self.d, self.hh, self.mm, self.ss)
 
     def toUS(self):
-        return "%02i/%02i/%04i %02i:%02i:%02i" % (self.m, self.d, self.y, self.hh, self.mm, self.ss)        
+        return "%02i/%02i/%04i %02i:%02i:%02i" % (self.m, self.d, self.y, self.hh, self.mm, self.ss)
 
     def __cmp__(self, other):
         if isinstance(other, DateTime):
@@ -217,7 +216,7 @@ class DateTime:
                 res.m = 1
                 res.y += 1
         return res
-    
+
     def __sub__(self, days):
         """
         same as __add__, but in reverse..
@@ -240,7 +239,7 @@ class DateTime:
 
     def toDate(self):
         return Date("%s-%s-%s" % (self.y, self.m, self.d))
-    
+
     def toMx(self):
         "return an mxDateTime if mx is available"
         assert mxDateTime, "mx.DateTime is not installed"
@@ -285,7 +284,7 @@ class DateTest(unittest.TestCase):
                "subtracting more than a month didn't work"
         assert Date("1/2/2002") - 366 == Date("1/1/2001"), \
                "subtracting more than a year didn't work"
-        
+
 
     def test_today(self):
         """
@@ -308,7 +307,7 @@ class DateTest(unittest.TestCase):
         assert Date("1/1/2001").daysInMonth() == 31
         assert Date("2/1/2001").daysInMonth() == 28
         assert Date("2/1/2000").daysInMonth() == 29
-        
+
     def test_daysInYear(self):
         assert Date("1/1/1999").daysInYear() == 365
         assert Date("1/1/2000").daysInYear() == 366 # leap year
@@ -341,7 +340,7 @@ class Date(DateTime):
             return res
 
     def toUS(self):
-        return "%02i/%02i/%04i" % (self.m, self.d, self.y)        
+        return "%02i/%02i/%04i" % (self.m, self.d, self.y)
 
 ##     def __cmp__(self, other):
 ##         if isinstance(other, Date):
@@ -400,7 +399,7 @@ class InclusiveRange(Range):
 
     def __contains__(self, item):
         return self.left <= item <= self.right
-    
+
 
 
 class PythonicRangeTest(unittest.TestCase):
@@ -413,7 +412,6 @@ class PythonicRangeTest(unittest.TestCase):
 class PythonicRange(Range):
     def __contains__(self, item):
         return self.left <= item < self.right
-    
 
 
 def toDate(thing):
@@ -424,7 +422,6 @@ def toDate(thing):
         return thing
     else:
         return Date(thing)
-    
 
 
 def toDateTime(thing):
@@ -435,7 +432,7 @@ def toDateTime(thing):
         return thing
     else:
         return DateTime(thing)
-    
+
 
 def dateRange(date1, date2):
     """
@@ -450,7 +447,7 @@ def dateRange(date1, date2):
     while d <= d2:
         dates.append(d)
         d += 1
-    
+
     return tuple(dates)
 
 
@@ -462,7 +459,7 @@ def email(s):
         return 0
 
 class EmailAddressTest(unittest.TestCase):
-  
+
     def testIt(self):
         assert email('name@example.com')
         assert email('first.last@another-example.com')
@@ -477,10 +474,10 @@ class EmailAddress(object):
 
     regex = r'^(\w|\d|_|-|\+)+(\.[a-zA-Z0-9_\-\+]+)*' \
             r'@(\w|\d|_|-)+(\.[a-zA-Z0-9_\-]+)+$'
-    
+
     def __init__(self, value):
         if not re.match(self.regex, value):
-            raise TypeError, "invalid EmailAddress"
+            raise TypeError("invalid EmailAddress")
         self.value = value
 
     def __str__(self):
@@ -494,6 +491,6 @@ class EmailAddress(object):
 
 
 # * ---
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
-    
+
