@@ -2,15 +2,14 @@
 handy routines for python
 """
 from pytypes import Date
-import htmlentitydefs
-import md5
+import html.entities
+import hashlib
 import operator
 import os
 import random
-import string
-import sys
 import tempfile
 import urllib
+from functools import reduce
 
 try: from Ft.Xml.Domlette import NonvalidatingReader
 except: pass
@@ -27,11 +26,11 @@ MEGA  = 10**6
 KILO  = 10**3
 
 
-def debug(password='abc123'):
-    import rpdb2
-    rpdb2.start_embedded_debugger(
-        password, fAllowUnencrypted=True, fAllowRemote=True)
-    
+# def debug(password='abc123'):
+#     import rpdb2
+#     rpdb2.start_embedded_debugger(
+#         password, fAllowUnencrypted=True, fAllowRemote=True)
+
 
 class switch(object):
     """
@@ -39,7 +38,7 @@ class switch(object):
 
     this idea is taken from:
     http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/410692
-    
+
     it's modified slightly because I didn't want
     the 'fall through' behavior that required break
     """
@@ -52,10 +51,9 @@ class switch(object):
         """
         yield self.match
         raise StopIteration
-    
+
     def match(self, *args):
         return self.value in args
-
 
 
 def daysInMonthPriorTo(day):
@@ -66,8 +64,7 @@ def daysInLastMonth():
     return daysInMonthPriorTo(Date("today"))
 
 
-
-def randpass(length=5):    
+def randpass(length=5):
     okay = "abcdefghijkmnopqrstuvwxyz2345678923456789"
     res = ""
     for i in range(length+1):
@@ -90,9 +87,9 @@ def readable(bytes):
     k = x % 1000; x-=k; x/=1000
     m = x % 1000; x-=m; x/=1000
     g = x % 1000; x-=g; x/=1000
-    if g: return str(g) + "." + string.zfill(str(m),3)[0] + "G"
-    if m: return str(m) + "." + string.zfill(str(k),3)[0] + "M"
-    if k: return str(k) + "." + string.zfill(str(b),3)[0] + "k"
+    if g: return str(g) + "." + str(m).zfill(3)[0] + "G"
+    if m: return str(m) + "." + str(k).zfill(3)[0] + "M"
+    if k: return str(k) + "." + str(b).zfill(3)[0] + "k"
     return str(b)
 
 
@@ -107,25 +104,25 @@ def trim(s):
     strips leading indentation from a multi-line string.
     for saving bandwith while making code look nice
     """
-    lines = string.split(s, "\n")
+    lines = s.split("\n")
 
     # strip leading blank line
     if lines[0] == "":
         lines = lines[1:]
-        
+
     # strip indentation
-    indent = len(lines[0]) - len(string.lstrip(lines[0]))
+    indent = len(lines[0]) - len(lines[0].lstrip())
     for i in range(len(lines)):
         lines[i] = lines[i][indent:]
 
-    return string.join(lines, "\n")
+    return "\n".join(lines)
 
 
 def indent(s, depth=1, indenter="    "):
     """
     opposite of trim
     """
-    lines = string.split(s, "\n")
+    lines = s.split("\n")
 
     # don't indent trailing newline
     trailer = ""
@@ -133,12 +130,12 @@ def indent(s, depth=1, indenter="    "):
         lines = lines[:-1]
         # BUT.. add it back in later
         trailer = "\n"
-        
+
     for i in range(len(lines)):
         lines[i] = (indenter * depth) + lines[i]
-        
-    return string.join(lines, "\n") + trailer
-   
+
+    return "\n".join(lines) + trailer
+
 
 def uid():
     """
@@ -146,18 +143,18 @@ def uid():
     Returns a 32 character, printable, unique string
     """
     tmp, uid = "", ""
-    
+
     # first, just get some random numbers
     for i in range(64):
         tmp = tmp + chr(random.randint(0,255))
 
     # then make a 16-byte md5 digest...
-    tmp = md5.new(tmp).digest()
+    tmp = hashlib.md5(tmp).digest()
 
     # and, since md5 is unprintable,
     # reformat it in hexidecimal:
     for i in tmp:
-        uid = uid + string.zfill(hex(ord(i))[2:],2)        
+        uid = uid + hex(ord(i))[2:].zfill(2)
 
     return uid
 
@@ -174,19 +171,17 @@ def edit(s):
     os.system("%s %s" % (ed, fn))
     return open(fn).read()
 
-
-
 def sum(series, initial=None):
     return reduce(operator.add, series, 0)
 assert sum((1,2,3)) == 6
 
 
-class Everything:
+class EverythingClass:
     def __contains__(self, thing):
         return True
-Everything=Everything()
-assert 234324 in Everything
 
+Everything = EverythingClass()
+assert 234324 in Everything
 
 
 def deNone(s, replacement=''):
@@ -210,28 +205,28 @@ def urlDecode(what):
     res = None
 
     if type(what) == type(""):
-        res = urllib.unquote(string.replace(what, "+", " "))
+        res = urllib.unquote(what.replace("+", " "))
 
     elif type(what) == type({}):
+        # !! what would this have done? surely it should be urllib.parse.urlencode?
+        # TODO: maybe this urlDecode function just has a backwards name?
         res = urllib.urldecode(what)
     else:
-        raise "urlDecode doesn't know how to deal with this kind of data"
+        raise Exception("urlDecode doesn't know how to deal with this kind of data")
 
     return res
 
 
-
 def htmlEncode(s):
-    _entitymap = dict((val, key) for (key,val) in htmlentitydefs.entitydefs.items())
+    _entitymap = dict((val, key) for (key,val) in html.entities.entitydefs.items())
     res = ""
     if s is not None:
         for ch in s:
-            if _entitymap.has_key(ch):
+            if ch in _entitymap:
                 res = res + "&" + _entitymap[ch] + ";"
             else:
                 res = res + ch
     return res
-        
 
 
 def take(howMany, series):
@@ -239,7 +234,6 @@ def take(howMany, series):
     for thing in series:
         yield thing
         count += 1
-        print count
         if count >= howMany: break
 
 
