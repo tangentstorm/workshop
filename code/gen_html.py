@@ -1,7 +1,7 @@
 """
 zebra.html - a utility module to help create html forms.
 """
-__ver__="$Id: html.py,v 1.2 2005/05/12 14:57:55 sabren Exp $"
+__ver__="$Id: gen_html.py,v 1.2 2005/05/12 14:57:55 sabren Exp $"
 
 from handy import deNone
 from handy import xmlEncode
@@ -28,7 +28,7 @@ def checkbox(name, isChecked, onValue=1, offValue=0, attrs=''):
 
 def radio(name, isChecked, value=1, attrs=''):
     '''
-    An html radio button. 
+    An html radio button.
     '''
     return '<input type="radio" name="%s" %s %s value="%s"/>' \
            % (name, attrs, ['','checked="checked"'][isChecked], value)
@@ -87,8 +87,7 @@ def select(name, options, value=None, attrs=''):
                 for item in options:
                     opts.append(list(item) + [(item[0] in vals)])
             else:
-                raise TypeError, \
-                      "Invalid option structure passed to html.select()!"
+                raise TypeError("Invalid option structure passed to html.select()!")
         ## else options is a list of keys:
         else:
             ## loop through and add make it [key key isChecked]
