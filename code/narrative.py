@@ -1,19 +1,18 @@
 """
 <title>Narrative Programming in Python</title>
 
-<p>by <a href='http://withoutane.com/'>Michal J Wallace</a>
-   (email:  <em>michal</em> at the domain
-            <em>withoutane dot com</em>)</p>
+<p>by <a href='http://tangentstorm.com/'>Michal J Wallace</a>
+   (email:  <em>michal dot wallace</em> at the domain
+            <em>gmail dot com</em>)</p>
 
 <p>source code: <a href="narrative.py"><code>narrative.py</code></a></p>
 """
 
 # $Id$
 
-import new
+import types
 import inspect
 import unittest
-import warnings
 
 # * Code that Explains Where it Came From
 """
@@ -189,7 +188,7 @@ class ExampleUnitTest(unittest.TestCase):
 
     def test_one_plus_one_is_two(self):
         self.assertEquals(1 + 1, 2)
-        
+
     def test_ten_equals_ten(self):
         self.assertEquals(10, 10)
 
@@ -233,12 +232,12 @@ for <code>setattr</code>. The complete decorator looks like
 this:</p>
 """
 def testcase(f):
-    testName = f.func_name
+    testName = f.__name__
     if not testName.startswith('test'):
         testName = 'test_%s' % testName
-    
-    testClass = new.classobj(testName, (unittest.TestCase,), {})
-    setattr(testClass, testName, new.instancemethod(f, None, testClass))
+
+    testClass = type(testName, (unittest.TestCase,), {})
+    types.MethodType(f, testClass)
 
     return testClass
 
@@ -350,8 +349,7 @@ def addMethod(theClass):
     A decorator that adds a new method to a class.
     """
     def wrapper(f):
-        setattr(theClass, f.__name__,
-                new.instancemethod(f, None, theClass))
+        types.MethodType(f, theClass)
     return wrapper
 
 """
@@ -399,7 +397,7 @@ def test_replaceMethod(test):
         return "all done"
 
     # and the class (and all instances) get the new method!
-    assert up.unfinished() == "all done" 
+    assert up.unfinished() == "all done"
     assert UpdateMe().unfinished() == "all done"
 
 
@@ -454,10 +452,10 @@ def replaceMethod(theClass):
         if not getattr(orig, "is_snapshot", None):
             raise TypeError("attempt to replace non-@snapshot method %s.%s"
                             % (theClass.__name__, f.__name__))
-        
+
         setattr(theClass, f.__name__,
-                new.instancemethod(f, None, theClass))
-        
+                types.MethodType(f, theClass))
+
     return wrapper
 
 
@@ -472,7 +470,7 @@ decorator simply makes this intent explicit.</p>
 
 @testcase
 def test_replace(test):
-        
+
     def replaceMe():
         return "original"
 
@@ -498,7 +496,7 @@ def test_replace_undefined(test):
         pass
     else:
         test.fail("should have gotten NameError")
-                
+
 
 """
 <p>Now, in order for our decorator to determine whether
@@ -512,20 +510,20 @@ except to return the new function as-is.</p>
 """
 
 def replace(f):
-    
+
     try:
         # grab the callling context's local dictionary off the stack
         calling_context = inspect.stack()[1][0].f_locals # ick :)
 
         # and make sure the function already exists
-        if not calling_context.has_key(f.__name__):
+        if f.__name__ not in calling_context:
             raise NameError("can't replace nonexistent function %s"
                             % f.__name__)
     except TypeError:
         # for some reason, the pydev debugger messes this up,
         # so for now, just ignore it and hope it's okay. ;)
         pass
-    
+
     # python handles the rest:
     return f
 
@@ -566,10 +564,10 @@ def addMethod(theClass):
     """
     def wrapper(f):
         if (theClass.__dict__.get(f.__name__)):
-            raise NameError("class %s already has method named %s" 
+            raise NameError("class %s already has method named %s"
                             % (theClass.__name__, f.__name__))
         setattr(theClass, f.__name__,
-                new.instancemethod(f, None, theClass))
+                types.MethodType(f, theClass))
     return wrapper
 
 
@@ -707,7 +705,7 @@ the literal history of a project, but rather some
 trail for others to follow once you already know where
 you're going.</p>
 """
-    
+
 
 # * <a name="selftest">Appendix: Self-Tests For This Code</a>
 """
@@ -716,4 +714,4 @@ in this narrative. It boils down to this: </p>
 """
 if __name__=="__main__":
     unittest.main()
-    
+
