@@ -3,9 +3,12 @@ OrderedDict
 """
 
 import unittest
-import UserDict
 
 # * test
+import warnings
+# TODO: remove this file completely since we now have collections.OrderedDict
+
+
 class OrderedDictTest(unittest.TestCase):
 
     def test_OrderedDict(self):
@@ -21,7 +24,6 @@ class OrderedDictTest(unittest.TestCase):
         assert ordd[0:2] == [0, 1], \
                "slicing is wrong: %s" % str(ordd[0:2])
 
-
     def test_nKeys(self):
         "check numeric keys"
         ordd = OrderedDict()
@@ -29,8 +31,6 @@ class OrderedDictTest(unittest.TestCase):
         ordd[1] = "b"
         assert ordd.keys() == [0, 1], \
                "numeric keys are wrong: %s" % idk.keys()
-        
-
 
     def test_lshift(self):
         ordd = OrderedDict()
@@ -41,7 +41,6 @@ class OrderedDictTest(unittest.TestCase):
                "keys are wrong: %s" % str(ordd.keys())
         assert ordd.values() == ["x", "y", "z"], \
                "values are wrong: %s" % str(ordd.values())
-
 
     def test_looping(self):
         ordd = OrderedDict()
@@ -56,7 +55,6 @@ class OrderedDictTest(unittest.TestCase):
         for item in ordd:
             assert 0, "there shouldn't be anything in ordd after .clear()"
 
-
     def test_negative(self):
         ordd = OrderedDict()
         ordd << "abc"
@@ -69,7 +67,6 @@ class OrderedDictTest(unittest.TestCase):
         except IndexError:
             gotError = 1
         assert gotError, "-3 worked but should not have!"
-        
 
     def test_repr(self):
         """
@@ -81,31 +78,31 @@ class OrderedDictTest(unittest.TestCase):
                "wrong representation: %s" % repr(ordd)
 # * code
 
-class OrderedDict(UserDict.UserDict):
-    __super = UserDict.UserDict
+class OrderedDict(dict):
+    __super = dict
 
     def __init__(self):
+        warnings.warn('use collections.OrderedDict instead!', DeprecationWarning)
         self.__super.__init__(self)
         self.ordd = []
 
     def _toStringKey(self, key):
         """Convert numeric keys into string keys. Leaves string keys as is"""
         # handle numeric keys:
-        if type(key)==type(0):            
+        if type(key)==type(0):
             if not (-len(self.ordd) <= key < len(self.ordd)):
                 ## oddly enough, it is this IndexError here
                 ## that allows you to do "for x in myOrderedDict:"
-                raise IndexError, `key` + " is out of bounds."
+                raise IndexError(repr(key) + " is out of bounds.")
             # convert it to a string key
             key = self.ordd[key]
         return key
-
 
     def __setitem__(self, key, item):
         """
         we can only use a numeric key if it's bigger than
         the length of the index..
-        
+
         eg,after:
         >>> ordd['a'] = 'abc'
         ordd[0] now maps to "a", so:
@@ -122,14 +119,13 @@ class OrderedDict(UserDict.UserDict):
         >>> ordd[2]
         'hijk'
         """
-        
+
         if (type(key) == type(0)) and (key < len(self.ordd)):
             key = self._toStringKey(key)
-                
+
         if not key in self.ordd:
             self.ordd.append(key)
         self.data[key] = item
-
 
     def __getitem__(self, key):
         key = self._toStringKey(key)
@@ -154,7 +150,7 @@ class OrderedDict(UserDict.UserDict):
     def clear(self):
         self.__super.clear(self)
         self.ordd = []
-    
+
     def __getslice__(self, i, j):
         i = max(i, 0); j = max(j, 0)
         res = []
@@ -164,7 +160,7 @@ class OrderedDict(UserDict.UserDict):
 
     def append(self, other):
         self[len(self.ordd)]=other
-    
+
     ### .. or like a dictionary: #########
     def keys(self):
         return self.ordd
@@ -180,7 +176,8 @@ class OrderedDict(UserDict.UserDict):
     # I'm not going to worry about it now, because
     # I don't need to delete anything from my lists.
 
+
 # * --
 
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
