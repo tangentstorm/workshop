@@ -97,10 +97,9 @@ class ZoomView(ListView):
 
     def visible(self):
         if self.zoomed:
-            [(yield each) for i,each in enumerate(self.data)
-             if self.selected[i]]
+            yield from (each for i, each in enumerate(self.data) if self.selected[i])
         else:
-            [(yield each) for each in self.data]
+            yield from self.data
 
     def isVisible(self, index):
         assert 0 <= index < len(self.data), "invalid index: %s" % index
