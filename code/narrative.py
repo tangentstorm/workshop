@@ -187,10 +187,10 @@ which allows you to define test cases like this:</p>
 class ExampleUnitTest(unittest.TestCase):
 
     def test_one_plus_one_is_two(self):
-        self.assertEquals(1 + 1, 2)
+        self.assertEqual(1 + 1, 2)
 
     def test_ten_equals_ten(self):
-        self.assertEquals(10, 10)
+        self.assertEqual(10, 10)
 
 """
 <p>These tests can then be gathered up and run automatically.
@@ -237,7 +237,7 @@ def testcase(f):
         testName = 'test_%s' % testName
 
     testClass = type(testName, (unittest.TestCase,), {})
-    types.MethodType(f, testClass)
+    setattr(testClass, testName, f)  # types.MethodType(f, testClass))
 
     return testClass
 
