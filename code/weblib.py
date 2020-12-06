@@ -4,13 +4,13 @@ weblib: Classes for easy server-side web scripting in Python.
 __ver__="$Id: __init__.py,v 1.30 2003/08/24 10:19:05 sabren Exp $"
 
 # * imports
+import sys, io
+import urllib.parse
 from handy import trim
 import traceback
 import os, sys
 import handy
-from Cookie import SimpleCookie, Morsel
-import string
-import UserDict
+from http.cookies import SimpleCookie, Morsel
 import weblib
 import random
 import os
@@ -66,38 +66,30 @@ def urlEncode(what):
     
     res = None
     import urllib
-    if type(what) == type(""):
-        res = urllib.quote(what)
-    elif type(what) == type({}):
-        res = urllib.urlencode(what)
+    if isinstance(what, str):
+        res = urllib.parse.quote(what)
+    elif isinstance(what, dict):
+        res = urllib.parse.urlencode(what)
     else:
-        raise "urlEncode doesn't know how to deal with this kind of data"
+        raise TypeError("urlEncode doesn't know how to deal with this kind of data")
 
     return res
     
 # ** urlDecode
 
 def urlDecode(what):
-    res = None
-    import urllib
-
-    if type(what) == type(""):
-        import string
-        res = urllib.unquote(string.replace(what, "+", " "))
-
-    elif type(what) == type({}):
-        res = urllib.urldecode(what)
+    if isinstance(what, str):
+        return urllib.parse.unquote(what.replace("+", " "))
+    # elif isinstance(what, dict):   # -- this makes no sense.
+    #     res = urllib.parse.urldecode(what)
     else:
-        raise "urlDecode doesn't know how to deal with this kind of data"
-
-    return res
+        raise TypeError("urlDecode doesn't know how to deal with this kind of data")
 
 
 # * stuff that should be in handy
 def tuplify(thing):
-    if type(thing)==tuple:
-        return thing
-    return (thing,)
+    return thing if isinstance(thing, tuple) else (thing, )
+
 def _tupleMerge(head, tail):
     return tuplify(head)+tuplify(tail)
 
@@ -124,14 +116,13 @@ class EngineTest(unittest.TestCase):
         
 
     def test_print(self):
-        import sys, StringIO
         eng = Engine(script=trim(
             """
             import weblib
             print >> RES, 'this should show'
             print 'this should not'
             """))
-        tempout, sys.stdout = sys.stdout, StringIO.StringIO()
+        tempout, sys.stdout = sys.stdout, io.StringIO()
         eng.run()
         sys.stdout, tempout = tempout, sys.stdout
         assert eng.response.buffer == "this should show\n", \
@@ -373,7 +364,7 @@ class Engine(object):
         """
         while self._exitstuff:
             func, targs, kargs = self._exitstuff[-1]
-            apply(func, targs, kargs)
+            func(*targs, **kargs)
             self._exitstuff.remove(self._exitstuff[-1])
 
     def _exec(self, script):
@@ -392,10 +383,10 @@ class Engine(object):
             self._exec(script)
         except weblib.Finished:
             self.result = self.EXIT
-        except AssertionError, e:
+        except AssertionError as e:
             self.result = self.FAILURE
             self.error = e
-        except weblib.Redirect, e:
+        except weblib.Redirect as e:
             self.result = self.REDIRECT
             try:
                 where = str(e)
@@ -405,7 +396,7 @@ class Engine(object):
                 self.response.redirect(where)
             except weblib.Finished:
                 pass
-        except Exception, e:
+        except Exception as e:
             self.result = self.EXCEPTION
             self.exception = e
             self.error = "".join(traceback.format_exception(
@@ -479,10 +470,7 @@ class RequestData(dict):
                 v = l[1]
             else:
                 v = ''
-            if res.has_key(k):
-                res[k] = _tupleMerge(res[k], v)
-            else:
-                res[k]=v
+            res[k] = _tupleMerge(res[k], v) if k in res else v
         return res
 # * RequestBuilder
 iso = "ISO-8859-1"
@@ -500,14 +488,14 @@ class RequestBuilder(object):
             host = host or os.environ.get("SERVER_NAME"),
             path = path or os.environ.get("PATH_INFO"),
             query=RequestData(querystring or
-                              urllib.unquote(os.environ.get("QUERY_STRING",'')).decode(iso).encode("utf8")
+                              urllib.parse.unquote(os.environ.get("QUERY_STRING",'')).decode(iso).encode("utf8")
                               ),
             form=form,
             cookie=SimpleCookie(cookie or os.environ.get("HTTP_COOKIE", "")),
             content=content or self.fetchContent(),
             remoteAddress = remoteAddress or "unknownhost")
     def fetchContent(self):
-        return sys.stdin.read(int(os.environ.get("CONTENT_LENGTH",0)))
+        return sys.stdin.read(int(os.environ.get("CONTENT_LENGTH",0) or 0))
 # * Request
 # ** test
 class RequestTest(unittest.TestCase):
@@ -671,7 +659,7 @@ class Request(object):
                 else:
                     res = _tupleMerge(res, dict[key])
         if res is None:
-            raise KeyError, key
+            raise KeyError(key)
         return res
 
     def get(self, key, failobj=None):
@@ -960,7 +948,7 @@ class OutputDecorator(object):
             </html>
             ''')
 # * Twisted support
-if 1:
+if True:
     class TwistedTest: pass
 else:
     import os
@@ -969,6 +957,7 @@ else:
     from weblib.misc import weblibtwisted
 
 
+    # TODO: move this twisted stuff out of weblib or trash it completely
     class TwistedTest(unittest.TestCase):
         def test_render(self):
             import weblib
@@ -981,6 +970,6 @@ else:
 
 
 # * run the tests
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
-    
+
