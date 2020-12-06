@@ -228,8 +228,8 @@ if __name__ == '__main__':
     try:
         import sqlTest
     except ImportError:
-        print ("MySQL tests skipped.")
-        print MySQLStorageTest.__doc__
+        print("MySQL tests skipped.")
+        print(MySQLStorageTest.__doc__)
         del MySQLStorageTest
 
     unittest.main()

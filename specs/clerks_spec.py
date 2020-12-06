@@ -57,12 +57,12 @@ and examples for users.
 # * objects used in the examples
 
 class Record(Strongbox):
-    ID = attr(long)
+    ID = attr(int)
     value = attr(str)
     next = link(lambda : Record)
 
 class Node(Strongbox):
-    ID = attr(long)
+    ID = attr(int)
     data = attr(str)
     parent = link(lambda : Node)
     kids = linkset((lambda : Node), "parent")
@@ -527,7 +527,7 @@ Here's a more involved example.
 def test_link_inject(self):
 
     class Foreign(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         data = attr(str)
 
         # there's no explicit test for this,
@@ -595,13 +595,13 @@ def test_linkset_inject(self):
 
 
     class Content(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         box = link(lambda : Package)
         data = attr(str)
 
 
     class Package(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         refs = linkset(Content, "box")
 
 
@@ -653,11 +653,11 @@ def test_linkinjector_with_linkset(self):
     """
 
     class Kid(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         parent = link(lambda : Parent)
 
     class Parent(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         name = attr(str)
         kids = linkset(Kid, "parent")
 
@@ -953,12 +953,12 @@ The code that implements this is actually in LinkSetInjector.
 def test_cached_linksets(test):
 
     class Parent(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         value = attr(str)
         kids = linkset((lambda : Child), "parent")
 
     class Child(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         value = attr(str)
         parent = link(Parent)
 
@@ -1130,11 +1130,11 @@ engine index).
 def test_callbacks(self):
 
     class Thing(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         x = attr(str)
 
     class OtherThing(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         x = attr(str)
 
     queue = []
@@ -1216,14 +1216,14 @@ def disappearing_events_regression_test(self):
     in LinkInjector.inject()
     """
     class Evt(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         evt = attr(str)
         acc = link(lambda : Acc)
     class Sub(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         acc = link(lambda : Acc)
     class Acc(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         subs = linkset(Sub, "acc")
         evts = linkset(Evt, "acc")
     schema = Schema({
@@ -1283,17 +1283,17 @@ def complex_recursion_regression_test(self):
     """
 
     class User(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         username = attr(str)
         domains = linkset((lambda : Domain),"user")
         sites = linkset((lambda : Site),"user")
     class Domain(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         user = link(User)
         name = attr(str)
         site = link(lambda : Site)            
     class Site(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         user = link(User)
         domain = link(Domain)
     dbMap = Schema({
@@ -1350,18 +1350,18 @@ def dirty_stub_regression(self):
     strongbox.onSet()
     """
     class Other(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         fname = attr(str)
         mname = attr(str)
         lname = attr(str)
         things = linkset((lambda: Thing), "other")
         
     class Thing(Strongbox):
-        ID = attr(long)
+        ID = attr(int)
         other = link(Other)
         data = attr(str)
         
-    dbMap = Schema({ Thing: "thing", Other:"other", Thing.other:"otherID"})
+    dbMap = Schema({Thing: "thing", Other: "other", Thing.other: "otherID"})
     store = RamStorage()
     
     clerkA = Clerk(store, dbMap)

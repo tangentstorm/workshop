@@ -295,16 +295,16 @@ class ReturnTest(unittest.TestCase):
     (for a specific example, see procwork.py)
     """
     def test_async(self):
-        def async(x):
+        def do_async(x):
             yield Control
             if x == 0:
                 yield Return('')
             else:
-                yield Return('x' + (yield async(x-1)))
+                yield Return('x' + (yield do_async(x-1)))
                 
-        self.assertEquals('', wrap(async(0)))
-        self.assertEquals('x', wrap(async(1)))
-        self.assertEquals('xxx', wrap(async(3)))
+        self.assertEquals('', wrap(do_async(0)))
+        self.assertEquals('x', wrap(do_async(1)))
+        self.assertEquals('xxx', wrap(do_async(3)))
 
 # * yielding values
 @testcase

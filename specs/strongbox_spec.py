@@ -318,7 +318,7 @@ def test_emptyString(self):
         
     f = Foo()
     f.i = ""; self.assertEquals(None, f.i)
-    f.s = ""; assert f.s is ""
+    f.s = ""; assert f.s == ""
     f.d = ""; assert f.d is None
     
 
@@ -457,7 +457,7 @@ def test_setter(test):
             self.cryptpwd = crypt.crypt(value, 'salt')
 
         def get_password(self):
-            raise AttributeError, "User.password is read only!"
+            raise AttributeError("User.password is read only!")
 
     u = User()
     assert u.cryptpwd == ''
