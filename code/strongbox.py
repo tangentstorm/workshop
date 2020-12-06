@@ -1,7 +1,7 @@
 """
 strongbox: smart data classes
 """
-from types import StringType, LambdaType, ListType, NoneType
+from types import LambdaType
 import narrative as narr
 import re
 import unittest
@@ -39,7 +39,7 @@ class attr(property):
         based on the type if a default was not provided
         """
         if default is Unspecified:
-            if typ in (str, unicode, int, float, long, bool):
+            if typ in (str, int, float, bool):
                 self.default = typ()
             else:
                 self.default = None
@@ -53,13 +53,13 @@ class attr(property):
         """
         self.okay = okay # keep for (eg) list dropdown forms
         def select(case=type(okay)):
-            if StringType == case:
+            if str == case:
                 return lambda v : re.compile(okay).match(v)
             elif LambdaType == case:
                 return okay
-            elif ListType == case:
+            elif list == case:
                 return okay.__contains__
-            elif NoneType == case:
+            elif okay is None:
                 return lambda v: True
             else:
                 raise TypeError(".okay cannot be %s" % case)
@@ -85,7 +85,7 @@ class attr(property):
             return value
         try:
             return self.type(value)
-        except Exception, e:
+        except Exception as e:
             if value=="":
                 # @TODO: remove this convenience for http browsers
                 # i'm afraid a lot of untested code is depending
@@ -183,8 +183,8 @@ class TypedList(list):
         if type(other) == self.type:
             super(TypedList, self).append(other)
         else:
-            raise TypeError, "Can't append %s to TypedList(%s)" \
-                  % (type(other), self.type)
+            raise TypeError("Can't append %s to TypedList(%s)"
+                  % (type(other), self.type))
         if self.backlink is not None:
             setattr(other, self.backlink, self.owner)
     
@@ -354,8 +354,7 @@ class MetaBox(type):
                     elif name.startswith("set_"):
                         setter[slot] = klass.dict[name]
 
-        from sets import Set
-        for key in Set(getter.keys() + setter.keys()):
+        for key in set(getter.keys() + setter.keys()):
             setattr(klass, key, property(getter.get(key), setter.get(key)))
                     
 
@@ -381,7 +380,7 @@ class BlackBox(Strict):
         if slot == "private" or hasattr(self.__class__, slot):
             try:
                 super(BlackBox, self).__setattr__(slot, value)
-            except AttributeError, e:
+            except AttributeError as e:
                 fail(str(e))
         else:
             fail('not a member of this class')
@@ -505,7 +504,7 @@ class BoxView:
         # very hard to debug!
         try:
             res = getattr(self.object, name)
-        except AttributeError, e:
+        except AttributeError as e:
             raise AttributeError("couldn't read attribute '%s' [%s]" % (name, e))
 
         if isinstance(res, tuple) or isinstance(res, linkset) or isinstance(res, list):
@@ -535,5 +534,5 @@ def asinstance(thing, klass):
         return klass(**thing) # @TODO: only works for strongboxen
     else:
         raise TypeError("expected a %s, got %s (%s)"
-                        % (self.klass, type(instance), instance))
+                        % (klass, type(thing), thing))
 
