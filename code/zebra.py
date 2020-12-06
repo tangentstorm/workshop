@@ -290,70 +290,70 @@ generating the docs. I'm not even sure it works. :/
 def makedocs():
     import xmllib # deprecated!
 
-    class tagdoc(xmllib.XMLParser):
+class tagdoc(xmllib.XMLParser):
 
-	def __init__(self):
-		xmllib.XMLParser.__init__(self)
-		self.STRIPE = "" # used to cache data between tags
+    def __init__(self):
+        xmllib.XMLParser.__init__(self)
+        self.STRIPE = "" # used to cache data between tags
 
-	## main menu at the top:
-	
-	def start_group(self, attrs):
-		print "<h3>" + attrs["name"] + "</h3>\n<ul>"
+    ## main menu at the top:
 
-	def end_group(self):
-		print "</ul>"
+    def start_group(self, attrs):
+        print("<h3>" + attrs["name"] + "</h3>\n<ul>")
 
-	def start_item(self, attrs):
-		print '<li><a href="#%s">%s</a>' % (attrs["tag"], attrs["tag"])
+    def end_group(self):
+        print("</ul>")
+
+    def start_item(self, attrs):
+        print('<li><a href="#%s">%s</a>' % (attrs["tag"], attrs["tag"]))
 
 
-	## individual tags
-	def start_tag(self, attrs):
-		print '<h2><a name="%s">%s</a></h2>' % (attrs["name"], attrs["name"])
-		self.attriblist = []
+        ## individual tags
+    def start_tag(self, attrs):
+        print('<h2><a name="%s">%s</a></h2>' % (attrs["name"], attrs["name"]))
+        self.attriblist = []
 
-	def end_tag(self):
-		if len(self.attriblist) > 0:
-			print """<table width="70%" border="1"><tr><th align="left">attribute</th><th align="left">meaning</th></tr>"""
-			for a in self.attriblist:
-				print "<tr><td>%s</td><td>%s</td></tr>" % (a["name"], a["desc"])
-			print "</table>"
-			
+    def end_tag(self):
+        if len(self.attriblist) > 0:
+            print(
+                """<table width="70%" border="1"><tr><th align="left">attribute</th><th align="left">meaning</th></tr>""")
+            for a in self.attriblist:
+                print("<tr><td>%s</td><td>%s</td></tr>" % (a["name"], a["desc"]))
+            print("</table>")
 
-	def start_desc(self, attrs):
-		self.STRIPE = ""
-		print '<p class="desc">'
+    def start_desc(self, attrs):
+        self.STRIPE = ""
+        print('<p class="desc">')
 
-	def end_desc(self):
-		print self.STRIPE
-		print '</p>'
+    def end_desc(self):
+        print(self.STRIPE)
+        print('</p>')
 
-	def start_example(self, attrs):
-		self.STRIPE = ""
-		print '<pre class="example">'
+    def start_example(self, attrs):
+        self.STRIPE = ""
+        print('<pre class="example">')
 
-	def end_example(self):
-		print self.STRIPE
-		print '</pre>'
+    def end_example(self):
+        print(self.STRIPE)
+        print('</pre>')
 
-	def start_attr(self, attrs):
-		self.attriblist.append(attrs)
+    def start_attr(self, attrs):
+        self.attriblist.append(attrs)
 
-	def start_split(self, attrs):
-		print "<hr>"
+    def start_split(self, attrs):
+        print("<hr>")
 
-	## char data
-	def replaceAts(self, match):
-		tag = match.group(1)
-		return '<a href="#%s">&lt;%s&gt;</a>' % (tag, tag)
+        ## char data
+    def replaceAts(self, match):
+        tag = match.group(1)
+        return '<a href="#%s">&lt;%s&gt;</a>' % (tag, tag)
 
-	def handle_data(self, data):
-		reAt = re.compile("\@\@([^@]+)\@\@", re.I | re.S )
-		res = reAt.sub(self.replaceAts,data)
-		self.STRIPE = self.STRIPE + res
+    def handle_data(self, data):
+        reAt = re.compile("\@\@([^@]+)\@\@", re.I | re.S )
+        res = reAt.sub(self.replaceAts,data)
+        self.STRIPE = self.STRIPE + res
 
-    print """
+    print("""
     <html>
     <head>
     <title>Zebra Tag Reference</title>
@@ -385,17 +385,18 @@ def makedocs():
     should sync up around release 1.0.
     </p>
     <a href="../">back to main zebra page</a>
-    """ % time.asctime(time.localtime(time.time()))
+    """ % time.asctime(time.localtime(time.time())))
 
     docs = tagdoc()
     docs.feed(o2x.o2x(open("tags.out").read()))
 
-    print """
+    print("""
     <hr>
     &copy; 1999 Zike Interactive.... <a href="../">back to main zebra page</a>
     </body>
     </html>
-    """
+    """)
+
 
 # * lexer for expressions:
 # ** test
@@ -406,23 +407,23 @@ class LexerTestCase(unittest.TestCase):
         actual = lex("x")
         assert actual == goal, \
                "didn't parse single var correctly:\n%s" % str(actual)
-        
+
 
     def test_lambda(self):
-        "we don't want to allow lambdas!"
+        """we don't want to allow lambdas!"""
         try:
-            print lexer_parse("lambda x: 4+x")
+            print(lexer_parse("lambda x: 4+x"))
         except SyntaxError:
             pass
         else:
             self.fail("lambdas should raise a syntax error!")
 
-        
+
 # ** types
 INT, STR, TUP = type(0), type(""), type(())
 # ** _walk
 def _walk(tree, res):
-    "routine to walk the parse tree"
+    """routine to walk the parse tree"""
     for node in tree:
         TYP = type(node)
         if TYP==INT:
@@ -437,7 +438,7 @@ def _walk(tree, res):
             _walk(node, res)
 # ** lex
 def lex(expression):
-    "Tokenize the expression by flattening python's own parse tree."
+    """Tokenize the expression by flattening python's own parse tree."""
     #@TODO: the tokenize module already does this..
     import parser, symbol
     tree = parser.expr(expression).totuple()
@@ -453,22 +454,21 @@ def lex(expression):
         res = res[:-2]
 
     return res
+
 # ** validate
 def validate(tokens):
-    "Validation of zebra tokens."
-    
-    ## this is just a start...
+    """Validation of zebra tokens."""
 
     for token in tokens:
         #>> lambda <<#
         # make sure they don't have lambdas, because we can't
         # easily translate them to other languages.
         if token[0]=="NAME" and token[1]=="lambda":
-            raise SyntaxError, "lambdas are not allowed in "
+            raise SyntaxError("lambdas are not allowed in zebra expressions")
     return tokens
 # ** parse
 def lexer_parse(expression):
-    "conveniece function to lex and validate an expression"
+    """conveniece function to lex and validate an expression"""
     return validate(lex(expression))
 
 # * Z2X : zbr 2 xml
@@ -501,7 +501,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
             This line isn't part of the else.<nl/>
             </zebra>
             """)
-        
+
         actual = Z2X().translate(zbr)
         assert actual==goal, \
                "doesn't indent correctly:\n%s" % actual
@@ -548,7 +548,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
                "doesn't cope well with {?vars?}:\n%s" % actual
 
 
-    
+
     def test_expr(self):
         zbr = trim(
             """
@@ -599,7 +599,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
 
 
     def test_invalid(self):
-        "check invalid tags"
+        """check invalid tags"""
         zbr = trim(
             """
             * thisIsAnInvalidTag
@@ -634,7 +634,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
         actual = Z2X().translate(zbr)
         assert actual==goal, \
                "doesn't handle comments right:\n%s" % actual
-            
+
 
 
     def test_include(self):
@@ -656,7 +656,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
         actual = Z2X().translate(zbr)
         assert actual==goal, \
                "doesn't handle includes right:\n%s" % actual
-    
+
 
 
     def test_forNone(self):
@@ -667,7 +667,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
             * none:
                 No people here!
             """)
-        
+
         goal = trim(
             """
             <?xml version="1.0"?>
@@ -699,7 +699,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
                     -------
                     THE END
             """)
-        
+
         goal = trim(
             """
             <?xml version="1.0"?>
@@ -733,7 +733,7 @@ class Zbr2xmlTestCase(unittest.TestCase):
             * ef x==2:
                 * include page_two;
             """)
-        
+
         goal = trim(
             """
             <?xml version="1.0"?>
@@ -782,19 +782,19 @@ class Zbr2xmlTestCase(unittest.TestCase):
 translate zebra's *.zbr files to xml
 """
 class Z2X:
-    "Class to translate zebra report files (*.zbr) to xml"
+    """Class to translate zebra report files (*.zbr) to xml"""
 
     ## public interface ############################
 
     def translate(self, zbr):
-        "Z2X().translate(zbr) => xml representation of the report"
+        """Z2X().translate(zbr) => xml representation of the report"""
 
         ## we deal with the file line by line:
         lines = string.split(zbr, "\n")
-        
+
         ## strip empty string that shows up if \n on last line:
         if lines[-1]=='': lines = lines[:-1]
-        
+
         ## master template:
         res = '<?xml version="1.0"?>\n'
         res = res + self._deBlock(lines,"zebra")
@@ -804,7 +804,7 @@ class Z2X:
     ## helper method ###############################
 
     def _deBlock(self, lines, tag, attrs="", left=0):
-        "Recursive routine to handle chunks of ZBR code"
+        """Recursive routine to handle chunks of ZBR code"""
 
         if attrs:
             res = "<%s %s>\n" % (tag, attrs)
@@ -814,9 +814,9 @@ class Z2X:
         x = 0
         while x < len(lines):
             lineNo = x + 1
-            
+
             ## only look from the leftmost position onwards.
-	    ## (it's okay because we make sure theres' nothing
+        ## (it's okay because we make sure theres' nothing
             ## but space in there a little later..
             line = lines[x][left:]
 
@@ -836,22 +836,18 @@ class Z2X:
                 elif line[-1] == ";":
                     isBlock = 0
                 else:
-                    raise SyntaxError, \
-                          "* tag without ':' or ';' on line %i\n[%s]" \
-                          % (lineNo, line)
+                    raise SyntaxError("* tag without ':' or ';' on line %i\n[%s]" % (lineNo, line))
                 line = line[:-1]
-                
+
                 ## get the tokens after *:
                 toks = string.split(line, " ")[1:]
                 tok = toks[0]
-                
+
                 ## see if we can parse that token:
                 if hasattr(self, "parse_"+tok):
-                    attrs = apply(getattr(self,"parse_"+tok), (toks,))
+                    attrs = getattr(self,"parse_"+tok)(toks)
                 else:
-                    raise NameError, \
-                          "Don't know how to handle '%s' on line %i" \
-                          % (line, lineNo)
+                    raise NameError("Don't know how to handle '%s' on line %i" % (line, lineNo))
 
                 ## find the new left edge:
                 if isBlock:
@@ -871,13 +867,12 @@ class Z2X:
                         ## the block is empty
                         pass
                     else:
-                        while (x<len(lines)):
-                            if (string.strip(lines[x])=="") \
-                               or (lines[x][:newleft])==(" " * newleft):
-                                x = x + 1
+                        while x<len(lines):
+                            if (lines[x].strip()=="") or (lines[x][:newleft])==(" " * newleft):
+                                x += 1
                             else:
                                 break
-                    
+
                     ## run this routine recursively on the inner block:
                     res = res + self._deBlock(lines[topx:x],
                                               tok, attrs, newleft)
@@ -889,16 +884,16 @@ class Z2X:
                 else:
                     # not a block...
                     res = res + "<%s %s/>\n" % (tok, attrs)
-                    
-                
+
+
             ## just a normal line..
             else:
                if tag == "exec":
                     end = "\n"
                elif (line.endswith(chr(92))):
                     line = line[:-1]
-                    end = "" 
-               else:  
+                    end = ""
+               else:
                     end = "<nl/>\n"
                res = res + deCurl(xmlEncode(line)) + end
             ## move on to the next line and continue with the while() loop:
@@ -915,10 +910,10 @@ class Z2X:
         return '' # exec has no options (yet)
 
     def parse_if(self, tokens):
-        return 'condition="%s"' % string.join(tokens[1:], " ")
+        return 'condition="%s"' % " ".join(tokens[1:])
 
     def parse_ef(self, tokens):
-        return 'condition="%s"' % string.join(tokens[1:], " ")
+        return 'condition="%s"' % " ".join(tokens[1:])
 
     def parse_el(self, tokens):
         return '' # el has no options (yet)
@@ -948,12 +943,12 @@ class Z2X:
 # ** entitymap
 _entitymap = {
     "<" : "lt",
-    ">" : "gt" ,   
-    "&" : "amp",      
+    ">" : "gt" ,
+    "&" : "amp",
     }
 # ** xmlencode
 def xmlEncode(s):
-    "Converts <, >, and & to xml entities."
+    """Converts <, >, and & to xml entities."""
     res = ""
     for ch in s:
         if _entitymap.has_key(ch):
@@ -964,9 +959,9 @@ def xmlEncode(s):
 # ** decurl ??
 def deCurl(s):
     """
-    {abc} => <var>abc</var> 
+    {abc} => <var>abc</var>
     {:xyz:} => <expr>xyz</expr>
-    
+
     use backslash to escape.
     eg, \{abc}
     or {: 'this is a \:} string' :}
@@ -1012,7 +1007,7 @@ class Xml2mdlTestCase(unittest.TestCase):
 
         assert x2m.model == [], \
                "Doesn't initialize model."
-        
+
         # now test for the correct model:
         goal = [{'__tag__': u'top',
                  '__data__':
@@ -1032,13 +1027,13 @@ class Xml2mdlTestCase(unittest.TestCase):
 
         actual = x2m.translate(self.data)
         self.assertEquals(actual,goal)
-        
+
 # ** code
 """
 code to convert xml to a model usable by zebra reports.
 """
 class X2M(xml.sax.handler.ContentHandler):
-    "I parse XML into zebra-style models."
+    """I parse XML into zebra-style models."""
 
     def __init__(self):
         self.model = []
@@ -1046,13 +1041,13 @@ class X2M(xml.sax.handler.ContentHandler):
         self.point_stack = self.model
 
     def translate(self, xml_string):
-        "X2M().translate(xml) => a model of the xml data."
+        """X2M().translate(xml) => a model of the xml data."""
         xml.sax.parseString(xml_string, self)
         return self.model
 
-        
+
     def startElement(self, tag, attributes):
-        "Add a dict describing the tag to the model, then add it to stack."
+        """Add a dict describing the tag to the model, then add it to stack."""
         dict = {"__tag__": tag, "__data__":[]}
         dict.update(attributes)
 
@@ -1061,15 +1056,15 @@ class X2M(xml.sax.handler.ContentHandler):
         self.model_point=dict["__data__"]
 
     def endElement(self, tag):
-        "Pop the point off the point stack."
+        """Pop the point off the point stack."""
         self.model_point = self.point_stack.pop()
 
-    def characters(self, data):    
+    def characters(self, data):
         self.model_point.append(data)
-        
+
     def ignorableWhitespace(self, data):
         self.model_point.append(data)
-       
+
 
 # * Bootstrap
 # ** test
@@ -1108,7 +1103,7 @@ class BootstrapTestCase(unittest.TestCase):
                 {"a":"alice", "b":"betty", "c":"carol"},
                 ],
             }
-        
+
         zbx = trim(
             """
             <?xml version="1.0"?>
@@ -1131,7 +1126,7 @@ class BootstrapTestCase(unittest.TestCase):
             alice, betty, carol
             alaska
             """)
-       
+
         actual = Bootstrap().toObject(zbx).fetch(model)
         assert actual == goal, \
                "for() loops don't work:\n---\n%s---" % actual
@@ -1144,7 +1139,7 @@ class BootstrapTestCase(unittest.TestCase):
             {"name":"b"},
             {"name":"c"}]
             }
-        
+
         zbx = trim(
             """
             <?xml version="1.0"?>
@@ -1159,13 +1154,13 @@ class BootstrapTestCase(unittest.TestCase):
             """)
         goal = "Argentina, Bolivia, Chile"
 
-        
+
         actual = Bootstrap().toObject(zbx).fetch(model)
         assert actual== goal, \
                "if/el/ef don't work:\n---%s---" % actual
 
 
-        
+
     def test_none(self):
         model = {"emptylist": [],
                  "fulllist": [{"a":"b"}]}
@@ -1209,7 +1204,7 @@ class BootstrapTestCase(unittest.TestCase):
             <xpr>5</xpr> <xpr>2</xpr><nl/>
             </zebra>
             """)
-        goal = "5 2\n"        
+        goal = "5 2\n"
         actual = Bootstrap().toObject(zbx).fetch()
         assert actual == goal, \
                "whitespace is screwed up:\n%s" % actual
@@ -1228,7 +1223,7 @@ class BootstrapTestCase(unittest.TestCase):
             """)
 
         goal = "<executive decision>"
-       
+
         actual = Bootstrap().toObject(zbx).fetch()
         assert actual == goal, \
                "expressions don't work:\n%s" % actual
@@ -1238,7 +1233,7 @@ class BootstrapTestCase(unittest.TestCase):
     def test_headFootSimple(self):
 
         # check the simple case, not the grouped version.
-        
+
         model = {
             "list": [
             {"toy":"ball"},
@@ -1257,13 +1252,13 @@ class BootstrapTestCase(unittest.TestCase):
             </for>
             </zebra>
             """)
-        
+
         goal = "Some toys: [ball, yoyo]"
 
 ##         print '--------'
 ##         print Bootstrap().compile(zbx)
 ##         print '--------'
-        
+
         actual = Bootstrap().toObject(zbx).fetch(model)
         assert actual == goal, \
                "head/tails don't work:\n%s" % actual
@@ -1289,7 +1284,7 @@ class BootstrapTestCase(unittest.TestCase):
         goal = "[{a}{b}]"
         actual = Bootstrap().toObject(zbx).fetch(model)
         self.assertEquals(actual, goal)
-        
+
 
 
     def test_include(self):
@@ -1305,7 +1300,7 @@ class BootstrapTestCase(unittest.TestCase):
 
         goal = "This is the include file!\n"
         tf.write(goal) ; tf.flush()
-        
+
         actual = Bootstrap().toObject(zbx).fetch()
         tf.close()
         assert actual == goal, \
@@ -1317,20 +1312,20 @@ class BootstrapTestCase(unittest.TestCase):
         actual = Bootstrap().toObject(zbx).fetch()
         assert actual == goal, \
                "brackets cause problems:\n%s" % actual
-        
+
     def test_body(self):
         zbx = '<zebra><body>blah</body></zebra>'
         goal = "blah"
         actual = Bootstrap().toObject(zbx).fetch()
         assert actual == goal, \
                "<body> doesn't work:\n%s" % actual
-        
+
 # ** code
 """
 Bootstrap compiler for 
 """
 class Bootstrap:
-    "A class to compile zebra reports until zebra can compile itself."
+    """A class to compile zebra reports until zebra can compile itself."""
 
     def __init__(self):
         self.counter = {}
@@ -1342,7 +1337,7 @@ class Bootstrap:
         Return a unique symbol for variable names in generated code.
         """
         self.counter.setdefault(prefix,0)
-        sym = "%s%i" % (prefix, self.counter[prefix]) 
+        sym = "%s%i" % (prefix, self.counter[prefix])
         self.counter[prefix] += 1
         return sym
 
@@ -1350,46 +1345,43 @@ class Bootstrap:
     parserClass = X2M
 
     def toObject(self, zbx):
-        "bstrap.toObject(zbx) => a python Report object"
+        """bstrap.toObject(zbx) => a python Report object"""
         exec(self.compile(zbx))
         return Report()
 
 
     def parse(self, zbx):
-        "Returns a Model-style representation of zbx"
+        """Returns a Model-style representation of zbx"""
         parser = self.parserClass()
         parser.translate(zbx)
         return parser.model
 
 
     def compile(self, zbx):
-        "Bootstrap.().compile(zbx) => python code for zbx"
+        """Bootstrap.().compile(zbx) => python code for zbx"""
 
         return self.walk(self.parse(zbx))
 
 
     def walk(self, model, mode="show"):
-        "Walks along the model, converting it to code..."
+        """Walks along the model, converting it to code..."""
         import types
 
         res = ""
 
         for item in model:
             ## XML tags are represented as dicts
-            if type(item) == types.DictType:
+            if type(item) == dict:
 
                 ## do we have a handler for the tag?
                 if not hasattr(self, "handle_" + item["__tag__"]):
-                    raise NameError, \
-                          "Don't know how to handle <%s>" % item["__tag__"]
+                    raise NameError("Don't know how to handle <%s>" % item["__tag__"])
 
-                res = res + apply(getattr(self, "handle_" + item["__tag__"]),
-                                  (item["__data__"], item))
-            
+                res += getattr(self, "handle_" + item["__tag__"])(item["__data__"], item)
+
 
             ## CDATA is represented as strings
-            elif type(item) == unicode:
-
+            elif type(item) == str:
 
                 if mode=="show":
                     ## strip first and last newlines, if present
@@ -1401,10 +1393,10 @@ class Bootstrap:
                               % escape(item)
                 else: # exec mode:
                     res = res + item
-            
+
             else:
-                raise TypeError, \
-                      "Don't know how to cope with %s" % type(item)
+                raise TypeError("Don't know how to cope with %s" % type(item))
+
         return res
 
 
@@ -1501,7 +1493,7 @@ class Bootstrap:
                 for item in mdl.keys():
                     scope[item]=mdl[item]
             ''' % data)
-        res = res + indent(self.walk(model), 1)            
+        res = res + indent(self.walk(model), 1)
         res = res + trim(
             '''
             #   ## close for-%(series)s loop ##########
@@ -1559,7 +1551,7 @@ class Bootstrap:
         return res
 
     def handle_body(self, model, attrs):
-        "the body tag does nothing at all.. it's purely aesthetic"
+        """the body tag does nothing at all.. it's purely aesthetic"""
         return self.walk(model)
 
     def handle_foot(self, model, attrs):
@@ -1603,12 +1595,12 @@ class ToolsTestCase(unittest.TestCase):
 
     def setUp(self):
         file = open("junk.zb","w")
-        print >> file, "* for each:"
-        print >> file, "    {:a:}"        
+        file.write("* for each:\n")
+        file.write("    {:a:}\n")
         file.close()
 
         file = open("xmljunk.zbx", "w")
-        print >> file, trim(
+        file.write(trim(
             '''
             <?xml version="1.0"?>
             <zebra>
@@ -1616,14 +1608,14 @@ class ToolsTestCase(unittest.TestCase):
             <xpr>a</xpr><nl/>
             </for>
             </zebra>
-            ''')
+            ''') + "\n")
         file.close()
-        
+
     def test_fetch(self):
         a = {"a":"x"}
         assert fetch("junk", {"each":[a]}) == "x\n"
         assert fetch("junk.zb", {"each":[a]}) == "x\n"
-        assert fetch("xmljunk.zbx", {"each":[a]}) == "x\n"        
+        assert fetch("xmljunk.zbx", {"each":[a]}) == "x\n"
 
 
     def tearDown(self):
@@ -1642,11 +1634,12 @@ def parse(string):
     """
     return Bootstrap().toObject(string)
 # ** fetch
-def fetch(template, model={}):
+def fetch(template, model=None):
     """
-    fetch the template, and appy it to the model
+    fetch the template, and apply it to the model
     """
-    path, filename = os.path.split(template)   
+    model = model or {}
+    path, filename = os.path.split(template)
     cwd = os.getcwd()
     if path:
         os.chdir(path)
@@ -1657,7 +1650,7 @@ def fetch(template, model={}):
             if os.path.exists(filename + ".zb"):
                 filename += ".zb"
             else:
-                raise IOError, "%s not found" % filename
+                raise IOError("%s not found" % filename)
 
         src = open(filename).read()
         if filename.endswith(".zb"):
@@ -1668,14 +1661,16 @@ def fetch(template, model={}):
     finally:
         # cleanup and go home
         os.chdir(cwd)
-        
+
     return res
 # ** show
-def show(template, model={}):
+def show(template, model=None):
     """
     same as fetch(), but prints the result
     """
-    print fetch(template, model)
+    print(fetch(template, model))
+
+
 # ** escape
 def escape(s):
     """
@@ -1697,25 +1692,25 @@ def escape(s):
     return res
 # ** trim
 def trim(s):
-    "trim(s) => Strips leading indentation from a multi-line string."
+    """trim(s) => Strips leading indentation from a multi-line string."""
 
-    lines = string.split(s, "\n")
+    lines = s.split("\n")
 
     # strip leading blank line
-    if string.strip(lines[0]) == "":
+    if lines[0].strip() == "":
         lines = lines[1:]
 
     # strip indentation
-    indent = len(lines[0]) - len(string.lstrip(lines[0]))
+    indent = len(lines[0]) - len(lines[0].lstrip())
     for i in range(len(lines)):
         lines[i] = lines[i][indent:]
 
-    return string.join(lines, "\n")
+    return "\n".join(lines)
 # ** indent
 def indent(s, depth=1, indenter="    "):
-    "indent(s,depth=1,indenter='    ') => Indent a multi-line string."
+    """indent(s,depth=1,indenter='    ') => Indent a multi-line string."""
 
-    lines = string.split(s, "\n")
+    lines = s.split("\n")
 
     # don't indent trailing newline
     trailer = ""
@@ -1723,66 +1718,68 @@ def indent(s, depth=1, indenter="    "):
         lines = lines[:-1]
         # BUT.. add it back in later
         trailer = "\n"
-    
+
     for i in range(len(lines)):
         lines[i] = (indenter * depth) + lines[i]
 
-    return string.join(lines, "\n") + trailer
+    return "\n".join(lines) + trailer
+
+
 # * html widgets
 # ** textarea
 def textarea(name, value, attrs=''):
-    '''
+    """
     An html TextArea tag
-    '''
+    """
     return '<textarea name="%s"%s>%s</textarea>' \
            % (name, attrs, xmlEncode(deNone(value)))
 # ** checkbox
 def checkbox(name, isChecked, onValue=1, offValue=0, attrs=''):
-    '''
+    """
     An html checkbox. Also adds a hidden __expect__ variable
     since the browser doesn\'t often send unchecked checkboxes.
-    '''
+    """
     return '<input type="hidden" name="__expect__" value="%s:%s"/>' \
            '<input type="checkbox" name="%s" %s %s value="%s"/>' \
            % (name, offValue, name, attrs, ['','checked="checked"'][isChecked], onValue)
 # ** radio
 def radio(name, isChecked, value=1, attrs=''):
-    '''
-    An html radio button. 
-    '''
+    """
+    An html radio button.
+    """
     return '<input type="radio" name="%s" %s %s value="%s"/>' \
            % (name, attrs, ['','checked="checked"'][isChecked], value)
 # ** text
 def text(name, value, attrs=''):
-    '''
+    """
     Returns the HTML code for a text INPUT tag.
-    '''
+    """
     return '<input type="text" name="%s" %s value="%s"/>' \
            % (name, attrs, deNone(value))
 # ** password
 def password(name, value, attrs=''):
-    '''
+    """
     Returns the HTML code for a text PASSWORD tag.
-    '''
+    """
     return '<input type="password" name="%s" %s value="%s"/>' \
            % (name, attrs, deNone(value))
 # ** hidden
 def hidden(name, value, attrs=''):
-    '''
+    """
     Returns HTML code for a hidden input tag.
-    '''
+    """
     return '<input type="hidden" name="%s" %s value="%s"/>' \
            % (name, attrs, deNone(value))
 # ** select
 def select(name, options, value=None, attrs=''):
-    '''
+    """
     returns HTML for a select box.
     options is either:
         a sequence of keys (if keys and values are the same)
         a sequence of (key/value) sequences..
     value is either a key or list of keys (can be [])
     attrs is extra HTML to add to the thing..
-    '''
+    """
 
     ## make sure vals is a list
     if type(value)!=type([]):
@@ -1806,8 +1803,7 @@ def select(name, options, value=None, attrs=''):
                 for item in options:
                     opts.append(list(item) + [(item[0] in vals)])
             else:
-                raise TypeError, \
-                      "Invalid option structure passed to html.select()!"
+                raise TypeError("Invalid option structure passed to html.select()!")
         ## else options is a list of keys:
         else:
             ## loop through and add make it [key key isChecked]
@@ -1819,13 +1815,13 @@ def select(name, options, value=None, attrs=''):
     ## now that we have an X*3 grid, show the box:
     res = '<select name="%s" %s>' % (name, attrs)
     for option in  opts:
-        res = res + '<option value="%s"' % option[0]
+        res += '<option value="%s"' % option[0]
         if option[2]:
-            res = res + ' selected="selected"'
-        res = res + '>%s</option>' % option[1]
+            res += ' selected="selected"'
+        res += '>%s</option>' % option[1]
     return res + '</select>'
 
 
 # * --tests--
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
