@@ -36,24 +36,9 @@ import sys, os, fnmatch, glob, shutil, codecs
 __version__ = '2.0.4'
 __all__ = ['path']
 
-# Pre-2.3 support.  Are unicode filenames supported?
+# TODO: clean up this old jun to handle unicode vs str distinction in python 2...
 _base = str
-try:
-    if os.path.supports_unicode_filenames:
-        _base = unicode
-except AttributeError:
-    pass
-
-# Pre-2.3 workaround for basestring.
-try:
-    basestring
-except NameError:
-    basestring = (str, unicode)
-
-# Universal newline support
 _textmode = 'r'
-if hasattr(file, 'newlines'):
-    _textmode = 'U'
 
 
 class path(_base):
@@ -395,7 +380,7 @@ class path(_base):
 
     def open(self, mode='r'):
         """ Open this file.  Return a file object. """
-        return file(self, mode)
+        return open(self, mode)
 
     def bytes(self):
         """ Open this file, read all bytes, return them as a string. """
@@ -522,7 +507,7 @@ class path(_base):
         conversion.
 
         """
-        if isinstance(text, unicode):
+        if isinstance(text, str):
             if linesep is not None:
                 # Convert all standard end-of-line sequences to
                 # ordinary newline characters.
@@ -614,7 +599,8 @@ class path(_base):
         f = self.open(mode)
         try:
             for line in lines:
-                isUnicode = isinstance(line, unicode)
+
+                isUnicode = False # isinstance(line, unicode)  TODO: figure out what I need here for python 3
                 if linesep is not None:
                     # Strip off any existing line-end and add the
                     # specified linesep string.
@@ -720,10 +706,10 @@ class path(_base):
 
     # --- Create/delete operations on directories
 
-    def mkdir(self, mode=0777):
+    def mkdir(self, mode=0o777):
         os.mkdir(self, mode)
 
-    def makedirs(self, mode=0777):
+    def makedirs(self, mode=0o777):
         os.makedirs(self, mode)
 
     def rmdir(self):
@@ -739,7 +725,7 @@ class path(_base):
         """ Set the access/modified times of this file to the current time.
         Create the file if it does not exist.
         """
-        fd = os.open(self, os.O_WRONLY | os.O_CREAT, 0666)
+        fd = os.open(self, os.O_WRONLY | os.O_CREAT, 0o666)
         os.close(fd)
         os.utime(self, None)
 
