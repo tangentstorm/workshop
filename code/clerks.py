@@ -40,11 +40,13 @@ class Cache(object):
         self.allCached = {}
         self.caching = [] # klasses currently being cached
 
-    def __getitem__(self, (klass, ID)):
+    def __getitem__(self, key):
+        klass, ID = key
         # for the test cases
         return self.data[klass][ID]
 
-    def __setitem__(self, (klass, ID), value):
+    def __setitem__(self, key, value):
+        klass, ID = key
         self.data.setdefault(klass, {})[ID] = value
 
 
