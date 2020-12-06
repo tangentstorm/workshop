@@ -3,8 +3,9 @@ storage: a module for storing tabular data
 """
 # * dependencies
 import operator
+import unittest
+from functools import reduce
 from warnings import warn
-from sets import Set
 from pytypes import Date
 import sqlite3 as sqlite
 from arlo import Expr, Name
@@ -13,6 +14,9 @@ from wherewolf import where, toSQL
 # optional depedencies
 try: import sqlite3 as sqlite
 except ImportError: sqlite = None
+
+try: from sets import Set as set
+except ImportError: pass # okay in modern python
 
 try: import MySQLdb
 except ImportError: MySQLdb = None
@@ -29,8 +33,8 @@ class Storage(object):
     def fetch(self, table, ID):
         res = self.match(table, where.ID==ID)
         if len(res)!=1:
-            raise LookupError, "match(%r, ID=%r) returned %i rows." \
-                  % (table, ID, len(res))
+            raise LookupError("match(%r, ID=%r) returned %i rows."
+                  % (table, ID, len(res)))
         return res[0]
 
     ## abstract:
@@ -92,7 +96,7 @@ class MySQLStorage(Storage):
             d = {}
             for i in range(len(cur.description)):
                 d[cur.description[i][0]] = (
-                    row[i].pop() if isinstance(row[i], Set) else row[i] )
+                    row[i].pop() if isinstance(row[i], set) else row[i] )
             res.append(d)
         return res
 
@@ -106,7 +110,7 @@ class MySQLStorage(Storage):
         elif val is None:
             return "NULL"
         else:
-            return "'" + "''".join(unicode(val).split("'")) + "'"
+            return "'" + "''".join(str(val).split("'")) + "'"
             
 
     def _insert_main(self, table, **row):
@@ -185,7 +189,7 @@ class MySQLStorage(Storage):
                 #print sql
                 self.cur.execute(sql)
                 break
-            except theException, e:
+            except theException as e:
                 # OperationalError: usually means the db is down.
                 attempt += 1
                 if attempt >= self.maxAttempts:
@@ -193,14 +197,15 @@ class MySQLStorage(Storage):
                                     % (attempt, e))
                 if attempt >= self.maxAttempts:
                     raise 
-            except Exception, e:
-                raise Exception, str(e) + ":" + sql
+            except Exception as e:
+                raise Exception(str(e) + ":" + sql)
 
 
 class PySQLiteStorage(MySQLStorage):
 
     def _getInsertID(self):
         return self.cur.lastrowid
+
     def _execute(self, sql):
         super(PySQLiteStorage, self)._execute(sql)
         self.dbc.commit()
@@ -210,8 +215,13 @@ class PySQLiteStorage(MySQLStorage):
         self._execute("UPDATE %s SET ID=%s where ID IS NULL"
                       % (table, id))
         return id
-      
 
-if __name__=="__main__":
+    def close(self):
+        self.dbc.close()
+
+    def commit(self):
+        self.dbc.commit()
+
+
+if __name__ == "__main__":
     unittest.main()
-    
