@@ -1,8 +1,6 @@
 """
 zebra.html - a utility module to help create html forms.
 """
-__ver__="$Id: gen_html.py,v 1.2 2005/05/12 14:57:55 sabren Exp $"
-
 from handy import deNone
 from handy import xmlEncode
 
@@ -11,65 +9,65 @@ from handy import xmlEncode
 ##[ HTML form elements ]################################
 
 def textarea(name, value, attrs=''):
-    '''
+    """
     An html TextArea tag
-    '''
+    """
     return '<textarea name="%s"%s>%s</textarea>' \
            % (name, attrs, xmlEncode(deNone(value)))
 
 def checkbox(name, isChecked, onValue=1, offValue=0, attrs=''):
-    '''
+    """
     An html checkbox. Also adds a hidden __expect__ variable
-    since the browser doesn\'t often send unchecked checkboxes.
-    '''
+    since the browser doesn't often send unchecked checkboxes.
+    """
     return '<input type="hidden" name="__expect__" value="%s:%s"/>' \
            '<input type="checkbox" name="%s" %s %s value="%s"/>' \
            % (name, offValue, name, attrs, ['','checked="checked"'][isChecked], onValue)
 
 def radio(name, isChecked, value=1, attrs=''):
-    '''
+    """
     An html radio button.
-    '''
+    """
     return '<input type="radio" name="%s" %s %s value="%s"/>' \
            % (name, attrs, ['','checked="checked"'][isChecked], value)
 
 def text(name, value, attrs=''):
-    '''
+    """
     Returns the HTML code for a text INPUT tag.
-    '''
+    """
     return '<input type="text" name="%s" %s value="%s"/>' \
            % (name, attrs, deNone(value))
 
 def password(name, value, attrs=''):
-    '''
+    """
     Returns the HTML code for a text PASSWORD tag.
-    '''
+    """
     return '<input type="password" name="%s" %s value="%s"/>' \
            % (name, attrs, deNone(value))
 
 def hidden(name, value, attrs=''):
-    '''
+    """
     Returns HTML code for a hidden input tag.
-    '''
+    """
     return '<input type="hidden" name="%s" %s value="%s"/>' \
            % (name, attrs, deNone(value))
 
 
 def select(name, options, value=None, attrs=''):
-    '''
+    """
     returns HTML for a select box.
     options is either:
         a sequence of keys (if keys and values are the same)
         a sequence of (key/value) sequences..
     value is either a key or list of keys (can be [])
     attrs is extra HTML to add to the thing..
-    '''
+    """
 
-    ## make sure vals is a list
+    ## make sure values is a list
     if type(value)!=type([]):
-        vals = [value]
+        values = [value]
     else:
-        vals = value
+        values = value
 
     ## expand options into a X*3 grid (if it's not):
     opts = []
@@ -85,23 +83,24 @@ def select(name, options, value=None, attrs=''):
             elif case == 2:
                 ## loop through and add isChecked
                 for item in options:
-                    opts.append(list(item) + [(item[0] in vals)])
+                    opts.append(list(item) + [(item[0] in values)])
             else:
-                raise TypeError("Invalid option structure passed to html.select()!")
+                raise TypeError(
+                      "Invalid option structure passed to html.select()!")
         ## else options is a list of keys:
         else:
             ## loop through and add make it [key key isChecked]
             for item in options:
-                opts.append([item, item, (item in vals)])
+                opts.append([item, item, (item in values)])
     else:
         pass # kinda silly to want no options, but no point crashing.
 
     ## now that we have an X*3 grid, show the box:
     res = '<select name="%s" %s>' % (name, attrs)
     for option in  opts:
-        res = res + '<option value="%s"' % option[0]
+        res += '<option value="%s"' % option[0]
         if option[2]:
-            res = res + ' selected="selected"'
-        res = res + '>%s</option>' % option[1]
+            res += ' selected="selected"'
+        res += '>%s</option>' % option[1]
     return res + '</select>'
 
