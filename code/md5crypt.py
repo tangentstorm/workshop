@@ -41,119 +41,118 @@ apache_md5_crypt() provides a function compatible with Apache's
 MAGIC = '$1$'			# Magic string
 ITOA64 = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-import md5
+from hashlib import md5
 
 def to64 (v, n):
-    ret = ''
-    while (n - 1 >= 0):
-        n = n - 1
+	ret = ''
+	while (n - 1 >= 0):
+		n = n - 1
 	ret = ret + ITOA64[v & 0x3f]
 	v = v >> 6
-    return ret
+	return ret
 
 
 def apache_md5_crypt (pw, salt):
-    # change the Magic string to match the one used by Apache
-    return unix_md5_crypt(pw, salt, '$apr1$')
+	# change the Magic string to match the one used by Apache
+	return unix_md5_crypt(pw, salt, '$apr1$')
 
 
 def unix_md5_crypt(pw, salt, magic=None):
-    
-    if magic==None:
-        magic = MAGIC
 
-    # Take care of the magic string if present
-    if salt[:len(magic)] == magic:
-        salt = salt[len(magic):]
-        
+	if magic==None:
+		magic = MAGIC
 
-    # salt can have up to 8 characters:
-    import string
-    salt = string.split(salt, '$', 1)[0]
-    salt = salt[:8]
-
-    ctx = pw + magic + salt
-
-    final = md5.md5(pw + salt + pw).digest()
-
-    for pl in range(len(pw),0,-16):
-        if pl > 16:
-            ctx = ctx + final[:16]
-        else:
-            ctx = ctx + final[:pl]
+	# Take care of the magic string if present
+	if salt[:len(magic)] == magic:
+		salt = salt[len(magic):]
 
 
-    # Now the 'weird' xform (??)
+	# salt can have up to 8 characters:
+	salt = salt.split('$', 1)[0]
+	salt = salt[:8]
 
-    i = len(pw)
-    while i:
-        if i & 1:
-            ctx = ctx + chr(0)  #if ($i & 1) { $ctx->add(pack("C", 0)); }
-        else:
-            ctx = ctx + pw[0]
-        i = i >> 1
+	ctx = pw + magic + salt
 
-    final = md5.md5(ctx).digest()
-    
-    # The following is supposed to make
-    # things run slower. 
+	final = md5(pw + salt + pw).digest()
 
-    # my question: WTF???
-
-    for i in range(1000):
-        ctx1 = ''
-        if i & 1:
-            ctx1 = ctx1 + pw
-        else:
-            ctx1 = ctx1 + final[:16]
-
-        if i % 3:
-            ctx1 = ctx1 + salt
-
-        if i % 7:
-            ctx1 = ctx1 + pw
-
-        if i & 1:
-            ctx1 = ctx1 + final[:16]
-        else:
-            ctx1 = ctx1 + pw
-            
-            
-        final = md5.md5(ctx1).digest()
+	for pl in range(len(pw),0,-16):
+		if pl > 16:
+			ctx = ctx + final[:16]
+		else:
+			ctx = ctx + final[:pl]
 
 
-    # Final xform
-                                
-    passwd = ''
+	# Now the 'weird' xform (??)
 
-    passwd = passwd + to64((int(ord(final[0])) << 16)
-                           |(int(ord(final[6])) << 8)
-                           |(int(ord(final[12]))),4)
+	i = len(pw)
+	while i:
+		if i & 1:
+			ctx = ctx + chr(0)  #if ($i & 1) { $ctx->add(pack("C", 0)); }
+		else:
+			ctx = ctx + pw[0]
+		i = i >> 1
 
-    passwd = passwd + to64((int(ord(final[1])) << 16)
-                           |(int(ord(final[7])) << 8)
-                           |(int(ord(final[13]))), 4)
+	final = md5(ctx).digest()
 
-    passwd = passwd + to64((int(ord(final[2])) << 16)
-                           |(int(ord(final[8])) << 8)
-                           |(int(ord(final[14]))), 4)
+	# The following is supposed to make
+	# things run slower.
 
-    passwd = passwd + to64((int(ord(final[3])) << 16)
-                           |(int(ord(final[9])) << 8)
-                           |(int(ord(final[15]))), 4)
+	# my question: WTF???
 
-    passwd = passwd + to64((int(ord(final[4])) << 16)
-                           |(int(ord(final[10])) << 8)
-                           |(int(ord(final[5]))), 4)
+	for i in range(1000):
+		ctx1 = ''
+		if i & 1:
+			ctx1 = ctx1 + pw
+		else:
+			ctx1 = ctx1 + final[:16]
 
-    passwd = passwd + to64((int(ord(final[11]))), 2)
+		if i % 3:
+			ctx1 = ctx1 + salt
+
+		if i % 7:
+			ctx1 = ctx1 + pw
+
+		if i & 1:
+			ctx1 = ctx1 + final[:16]
+		else:
+			ctx1 = ctx1 + pw
 
 
-    return magic + salt + '$' + passwd
+		final = md5(ctx1).digest()
+
+
+	# Final xform
+
+	passwd = ''
+
+	passwd = passwd + to64((int(ord(final[0])) << 16)
+						   |(int(ord(final[6])) << 8)
+						   |(int(ord(final[12]))),4)
+
+	passwd = passwd + to64((int(ord(final[1])) << 16)
+						   |(int(ord(final[7])) << 8)
+						   |(int(ord(final[13]))), 4)
+
+	passwd = passwd + to64((int(ord(final[2])) << 16)
+						   |(int(ord(final[8])) << 8)
+						   |(int(ord(final[14]))), 4)
+
+	passwd = passwd + to64((int(ord(final[3])) << 16)
+						   |(int(ord(final[9])) << 8)
+						   |(int(ord(final[15]))), 4)
+
+	passwd = passwd + to64((int(ord(final[4])) << 16)
+						   |(int(ord(final[10])) << 8)
+						   |(int(ord(final[5]))), 4)
+
+	passwd = passwd + to64((int(ord(final[11]))), 2)
+
+
+	return magic + salt + '$' + passwd
 
 
 ## assign a wrapper function:
 md5crypt = unix_md5_crypt
 
 if __name__ == "__main__":
-    print unix_md5_crypt("cat", "hat")
+	print(unix_md5_crypt("cat", "hat"))
