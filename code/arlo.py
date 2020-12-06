@@ -149,11 +149,13 @@ do with the data structure once you have it.
 
 """
 from warnings import warn
-import sys
+import doctest
+
 
 # a -> Bool
 def wrapped(value):
     return isinstance(value, Expr)
+
 
 # see http://docs.python.org/library/operator.html
 biOps = dict(
@@ -168,6 +170,9 @@ unOps = dict(
 
 
 def declare(s):
+    """
+    Returns a string you can execute to declare some variables.
+    """
     xs = s.split()
     return "%s = %s" % (','.join(xs), ",".join('_.%s' % x for x in xs))
 
@@ -192,13 +197,13 @@ class Expr(object):
     def _pattern(self, slots=None):
         arity = self.arity if slots is None else slots
         if arity == 0: return ()
-        if arity == 1: return (self.op, )
-        if arity == 2: return (self.left, self.right)
-        if arity == 3: return (self.left, self.op, self.right)
+        if arity == 1: return self.op,
+        if arity == 2: return self.left, self.right
+        if arity == 3: return self.left, self.op, self.right
 
     def _wrap(self, other, wrapper):
         if type(other) == tuple: return tuple(
-            self._wrap(x,wrapper) for x in other)
+            self._wrap(x, wrapper) for x in other)
         else: return other if wrapped(other) else wrapper(other)
 
     # (sym, object) -> Expr
@@ -210,9 +215,6 @@ class Expr(object):
 
     def __str__(self):
         return '(%s %s %s)' % (self.left, self.op, self.right)
-
-    def __unicode__(self):
-        return unicode(str(self))
 
     def __call__(self, *others, **kw):
         if kw: warn("keyword arguments don't work yet! (%s)" % kw)
@@ -230,38 +232,55 @@ class Expr(object):
 
     def __eq__(self, other):
         return self._build('==', other)
+
     def __ne__(self, other):
         return self._build('!=', other)
+
     def __lt__(self, other):
         return self._build('<', other)
+
     def __gt__(self, other):
         return self._build('>', other)
+
     def __le__(self, other):
         return self._build('<=', other)
+
     def __ge__(self, other):
         return self._build('>=', other)
+
     def __and__(self, other):
         return self._build('&', other)
+
     def __or__(self, other):
         return self._build('|', other)
+
     def __xor__(self, other):
         return self._build('^', other)
+
     def __lshift__(self, other):
         return self._build('<<', other)
+
     def __rshift__(self, other):
         return self._build('>>', other)
+
     def __add__(self, other):
         return self._build('+', other)
+
     def __sub__(self, other):
         return self._build('-', other)
+
     def __mul__(self, other):
         return self._build('*', other)
+
     def __div__(self, other):
         return self._build('/', other)
+
     def __mod__(self, other):
         return self._build('%', other)
+
     def __pow__(self, other):
         return self._build('**', other)
+
     def __floordiv__(self, other):
         return self._build('//', other)
     
@@ -287,43 +306,52 @@ class Expr(object):
 #         setattr(Expr, magicMethod, _makeMagic(op, sym, 2))
 
 
+# suffix constructs #################################################
 
-
-## suffix constructs #################################################
 
 # abstract
 class SuffixExpr(Expr):
     _symbol = ' '
+
     def __init__(self, left, right):
-        super(SuffixExpr,self).__init__(
+        super(SuffixExpr, self).__init__(
             left, self._symbol, self._wrap(right, Name))
         self.arity = 2
+
 
 # | DotExpr Expr Expr
 class DotExpr(SuffixExpr):
     _symbol = '.'
+
     def __repr__(self):
         return '%r.%r' % (self.left, self.right)
+
     def __str__(self):
         if isinstance(self.left, StartExpr):
             return str(self.right)
         else:
             return '%s.%s' % (self.left, self.right)
 
+
 # | CallExpr Expr Expr
 class CallExpr(SuffixExpr):
     _symbol = '()'
+
     def __repr__(self):
         return '%r(%s)' % (self.left, ','.join(repr(s) for s in self.right))
+
     def __str__(self):
         return '%s(%s)' % (self.left, ','.join(str(s) for s in self.right))
+
 
 # | SubExpr Expr Expr
 class SubExpr(SuffixExpr):
     _symbol = '[]'
+
     def __repr__(self):
         right = self.right if type(self.right) == tuple else (self.right,)
         return '%r[%r]' % (self.left, ','.join(repr(s) for s in right))
+
     def __str__(self):
         right = self.right if type(self.right) == tuple else (self.right,)
         return '%s[%s]' % (self.left, ','.join(str(s) for s in right))
@@ -337,8 +365,10 @@ class LeafExpr(Expr):
 
 # Str -> Const object
 class Const(LeafExpr):
+
     def __str__(self):
         return repr(self.op)
+
     def __repr__(self):
         return "_(%r)" % self.op
 
@@ -347,26 +377,33 @@ class Const(LeafExpr):
 class Name(LeafExpr):
     def __str__(self):
         return str(self.op)
+
     def __repr__(self):
         return "%s" % self.op
 
 
-## builders #########################################
+# builders #########################################
 
 class StartExpr(Expr):
+
     def __init__(self):
         self.arity = 0
+
     def __getattr__(self, o):
         return DotExpr(self, Name(o))
+
     def __call__(self, o):
         return Const(o)
+
     def __str__(self):
         return "_"
+
     def __repr__(self):
         return "_"
 
 
 _ = ARLO = StartExpr()
+
 
 def pattern(ex):
     """
@@ -397,7 +434,5 @@ def transform(f, dispatch, ex):
     return dispatch[ex.__class__](f, *pattern(ex))
 
 
-if __name__=="__main__":
-    import arlo
-    import doctest
+if __name__ == "__main__":
     doctest.testmod()
