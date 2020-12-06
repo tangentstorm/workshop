@@ -1,9 +1,14 @@
-import warnings
-from types import LambdaType
+import mimetypes
+import types
 import re
+import clerks
+import strongbox
+import inspect
 
 class Model(dict):
-    
+    """
+    This is a javascript-style object that aliases obj.x to obj['x']
+    """
     def __init__(self, **kwargs):
         super(Model, self).__init__()
         self.update(kwargs)
@@ -16,10 +21,10 @@ class Model(dict):
 
 
 class Intercept(Exception):
-    def __init__(self, error):
-         self.error = error
-         self.data = {"error":error}
-
+    def __init__(self, error, *args):
+        super(Intercept, self).__init__(*args)
+        self.error = error
+        self.data = {"error": error}
 
 
 class lazydict(dict):
@@ -42,43 +47,42 @@ class lazydict(dict):
     24
     >>> lazy['y']
     25
-    
     """
-
     def __setitem__(self, key, wrapped):
-        assert isinstance(wrapped, LambdaType)
+        assert isinstance(wrapped, types.LambdaType)
         dict.__setitem__(self, key, wrapped)
 
     def __getitem__(self, key):
-        return dict.__getitem__(self, key)()
-         
+        thunk = dict.__getitem__(self, key)
+        assert callable(thunk)
+        return thunk()
 
-
-# same as inspect.getargspec but adds support for __call__
-from inspect import ismethod, isfunction, getargs
 def getargspec(func):
-    """Get the names and default values of a function's arguments.
+    """
+    :: Fun -> Tup [[Str|List] [Str] [Str]]
+    TODO : :: Fun -> { args:[Str|List] var_args:[Str] key_args:[Str] }
+
+    Get the names and default values of a function's arguments.
 
     A tuple of four things is returned: (args, varargs, varkw, defaults).
     'args' is a list of the argument names (it may contain nested lists).
     'varargs' and 'varkw' are the names of the * and ** arguments or None.
     'defaults' is an n-tuple of the default values of the last n arguments.
     """
-    if ismethod(func):
-        func = func.im_func
-    
-    if not isfunction(func):
-        if hasattr(func, '__call__'):
-            return getargspec(func.__call__)
-        else:
-            raise TypeError('%r is not a Python function' % func)
-        
-    args, varargs, varkw = getargs(func.func_code)
-    return args, varargs, varkw, func.func_defaults
+    # TODO: getargspec should use inspect.getargspec (adds support for __call__)
+    if inspect.ismethod(func):
+        new_func = func.im_func
+    elif hasattr(func, '__call__') and not inspect.isfunction(func):
+        new_func = func.__call__
+    else:
+        new_func = func
+
+    return inspect.getargspec(new_func)
 
 
 def signature(f):
     """
+    :: (expected:[Arg], defaults:[Str:Val])
     returns a list of arguments and a dict of default values
     """
     spec = getargspec(f)
@@ -91,26 +95,25 @@ def signature(f):
             # (because default values are evaluated only once)
             assert type(v)!=list, "default lists are mutable! use tuples!"
             defaults[k]=v
-    return need, defaults
+    return Model(expected=need, defaults=defaults)
 
 
-def firstMatch(arg, *dicts):
+def firstMatch(arg, dicts):
     for d in dicts:
         if d.has_key(arg):
             return d[arg]
     raise TypeError("missing parameter: %s" % arg)
 
 
-def callWithKeys(f, *dicts):
-    expected, defaults = signature(f)
-
-    if expected[0]=="self":
+def callWithKeys(f, dicts):
+    sig = signature(f)
+    if sig.expected and sig.expected[0]=="self":
         # @TODO: work even without convention?
         # (could check whether it's method/bound method vs function)
-        expected.remove("self")
+        sig.expected.remove("self")
 
-    searchSpace = list(dicts)+[defaults]
-    return f(*[firstMatch(arg, *searchSpace) for arg in expected])
+    search_space = list(dicts)+[sig.defaults]
+    return f(*[firstMatch(arg, search_space) for arg in sig.expected])
 
 
 class URI(object):
@@ -126,7 +129,10 @@ class URI(object):
         return self.re.match(path)
 
     def supports(self, method):
-        return (method.upper() in self.methods)
+        return method.upper() in self.methods
+
+    def __repr__(self):
+        return "URI({0}, {1})".format(self.path, self.methods.keys())
         
 
 class REST(object):
@@ -141,7 +147,7 @@ class REST(object):
 
     usage:
 
-    >>> def getPerson(): pass # whatever you wante
+    >>> def getPerson(): pass # whatever you want
     >>> r = REST(URI('/person/(?P<name>.*)',
     ...              GET=getPerson,
     ...              PUT='put'))
@@ -153,31 +159,30 @@ class REST(object):
     By default, the r.meth(path) syntax converts 'meth' to
     uppercase:  r('METH', path)
     
-    You can disable this by setting r.autoup to False.
+    You can disable this by setting r.auto_up to False.
     """
-    def __init__(self, *uris):
-        self.uris = uris
-        self.autoup = True
+    def __init__(self, *uris_):
+        self.uris = uris_
+        self.auto_up = True
 
     def __call__(self, meth, path):
         """
-        return (handler, pathvars) -> (object, dict)
+        return (handler, path_vars) -> (object, dict)
         """
         for uri in self.uris:
             match = uri.match(path)
             if match:
                 if uri.supports(meth):
-                    return (uri.methods[meth], match.groupdict())
+                    return uri.methods[meth], match.groupdict()
                 else:
-                    raise NotImplementedError('405 Method Not Allowed')
+                    raise NotImplementedError('405 Method {0} Not Allowed for {1}'.format(meth, path))
             else: pass 
         else:
             # @TODO: Status 404: Not Found
             raise LookupError("404 Not Found : %s %s" % (meth, path))
 
     def __getattr__(self, meth):
-        return lambda(path):\
-               self(meth.upper() if self.autoup else meth, path)
+        return lambda path:self(meth.upper() if self.auto_up else meth, path)
 
 
 
@@ -200,7 +205,7 @@ class AbstractApp(object):
         feature = self.buildFeature(req)
         try:
             self.render(req, res, feature, self.invoke(req, res, feature))
-        except Intercept, inter:
+        except Intercept as inter:
             self.onIntercept(req, res, feature, inter)
 
         # i thought about letting you chain intercepts and whatnot,
@@ -213,6 +218,7 @@ App = AbstractApp
 
 class Resource(object):
     pass
+
 
 
 class BoxClerkResource(Resource):
@@ -230,7 +236,7 @@ class BoxClerkResource(Resource):
         return len(self.match())
 
     def __getitem__(self, key):
-        return BoxClerkProxy(self.clerk, self.clerk.fetch(self.klass, key))
+        return clerks.BoxClerkProxy(self.clerk, self.clerk.fetch(self.klass, key))
 
     def __delitem__(self, key):
         return self.clerk.delete(self.klass, key)
@@ -242,5 +248,23 @@ class BoxClerkResource(Resource):
         """
         stores an instance of self.klass on <<<
         """
-        self.clerk.store(asinstance(instance, self.klass))
-        
+        self.clerk.store(strongbox.asinstance(instance, self.klass))
+
+# BEGIN
+mimetypes.add_type('text/coffeescript', '.cf')
+
+
+_is_wsgi_component  = 'is_wsgi_component'
+_ignore_http_post   = 'ignore_http_post'
+
+def wsgi_component(handler):
+    setattr(handler, _is_wsgi_component, True)
+    return handler
+def is_wsgi_component(handler):
+    return getattr(handler, _is_wsgi_component, False)
+
+def ignore_http_post(handler):
+    setattr(handler, _ignore_http_post, True)
+    return handler
+def has_ignore_post_marker(handler):
+    return getattr(handler, _ignore_http_post, False)
