@@ -8,8 +8,6 @@
 <p>source code: <a href="narrative.py"><code>narrative.py</code></a></p>
 """
 
-# $Id$
-
 import types
 import inspect
 import unittest
@@ -115,9 +113,9 @@ first, though):</p>
 
 <code type="elisp"><pre>
 (add-hook 'python-mode-hook
-	  '(lambda ()
-	     (outline-minor-mode)
-	     (setq outline-regexp &quot;# [*]+&quot;)))
+          '(lambda ()
+             (outline-minor-mode)
+             (setq outline-regexp &quot;# [*]+&quot;)))
 </code></pre>
 """
 
@@ -132,6 +130,7 @@ in the following test case, we replace a method in class
 <code>Foo</code> that is <em>also called <code>Foo</code></em>.
 The second version shadows the first one:</p>
 """
+
 
 class ShadowMethodExample(unittest.TestCase):
     """
@@ -157,6 +156,7 @@ class ShadowMethodExample(unittest.TestCase):
         # it looks like you changed the class:
         assert Foo().bar() == "bar"
         assert Foo().baz() == "baz"
+
 
 """
 <p>While this approach does work, it's rather clunky, and
@@ -184,6 +184,7 @@ href='http://docs.python.org/lib/module-unittest.html'>unittest</a></code>,
 which allows you to define test cases like this:</p>
 """
 
+
 class ExampleUnitTest(unittest.TestCase):
 
     def test_one_plus_one_is_two(self):
@@ -191,6 +192,7 @@ class ExampleUnitTest(unittest.TestCase):
 
     def test_ten_equals_ten(self):
         self.assertEqual(10, 10)
+
 
 """
 <p>These tests can then be gathered up and run automatically.
@@ -206,6 +208,8 @@ intersperse those tests with the code that passes them.</p>
 we can save some typing by defining a decorator named
 <code>@testcase</code>. It works like this: </p>
 """
+
+
 class TestCaseTest(unittest.TestCase):
     def test(self):
 
@@ -216,6 +220,7 @@ class TestCaseTest(unittest.TestCase):
 
         # ... and your function becomes a TestCase
         assert issubclass(myTestCase, unittest.TestCase)
+
 
 """
 <p>A decorator is just a function that takes another function
@@ -231,6 +236,8 @@ add the method to the new class, which of course is a job
 for <code>setattr</code>. The complete decorator looks like
 this:</p>
 """
+
+
 def testcase(f):
     testName = f.__name__
     if not testName.startswith('test'):
@@ -262,6 +269,7 @@ run at all (and try out our new <code>@testcase</code>
 decorator) with the following test case:</p>
 """
 
+
 @testcase
 def test_snapshot_functions(test):
 
@@ -275,6 +283,7 @@ def test_snapshot_functions(test):
 
     # you shouldn't be able to call it, either:
     test.assertRaises(NotImplementedError, work_in_progress)
+
 
 @testcase
 def test_snapshot_methods(test):
@@ -293,16 +302,18 @@ def test_snapshot_methods(test):
     test.assertRaises(NotImplementedError, obj.work_in_progress)
 
 
-
 """
 <p>To implement, we can tell our decorator to replace
 the function completely:</p>
 """
+
+
 def snapshot(f):
     def fake_function(*arg, **kw):
         raise NotImplementedError("%s is not finished" % f.__name__)
     fake_function.is_snapshot = True
     return fake_function
+
 
 """
 <p>Now, on to business.</p>
@@ -315,6 +326,7 @@ def snapshot(f):
 <code>@addMethod</code>, and we can define its behavior
 with the following unit test:</p>
 """
+
 
 @testcase
 def test_addMethod(self):
@@ -331,6 +343,7 @@ def test_addMethod(self):
     e = ExtendMe()
     assert e.doSomething(1) == 2
 
+
 """
 <p>The code for <code>@addMethod</code> looks a lot like
 the code for <code>@testcase</code>, with one difference:
@@ -343,14 +356,16 @@ function, and that wrapper is what does the actual decorating.
 318</a> for details.) The end result looks like this:</p>
 """
 
+
 @snapshot
-def addMethod(theClass):
+def addMethod(klass):
     """
     A decorator that adds a new method to a class.
     """
     def wrapper(f):
-        types.MethodType(f, theClass)
+        types.MethodType(f, klass)
     return wrapper
+
 
 """
 <p>Notice the use of <code>@snapshot</code>? A clear signal
@@ -378,6 +393,7 @@ color-coded, line-by-line <code>diff</code>.</p>
 <p>In any case, <code>@replaceMethod()</code>
 works like this:</p>
 """
+
 
 @testcase
 def test_replaceMethod(test):
@@ -438,26 +454,26 @@ def test_replaceMethod_undefined(self):
     else:
         self.fail("should have raised NameError on undefined method")
 
+
 """
 <p>The implementation looks like this:</p>
 """
-def replaceMethod(theClass):
+def replaceMethod(klass):
     def wrapper(f):
-        orig = theClass.__dict__.get(f.__name__, None)
+        orig = klass.__dict__.get(f.__name__, None)
 
         if not orig:
             raise NameError("attempt to replace nonexistent method %s.%s!"
-                            % (theClass.__name__, f.__name__))
+                            % (klass.__name__, f.__name__))
 
         if not getattr(orig, "is_snapshot", None):
             raise TypeError("attempt to replace non-@snapshot method %s.%s"
-                            % (theClass.__name__, f.__name__))
+                            % (klass.__name__, f.__name__))
 
-        setattr(theClass, f.__name__,
-                types.MethodType(f, theClass))
+        setattr(klass, f.__name__,
+                types.MethodType(f, klass))
 
     return wrapper
-
 
 
 # * Replacing a Function
@@ -467,6 +483,7 @@ special syntax whatsoever. You just define a new
 function with the same name. The <code>@replace</code>
 decorator simply makes this intent explicit.</p>
 """
+
 
 @testcase
 def test_replace(test):
@@ -485,6 +502,7 @@ def test_replace(test):
 <p>Once again, we'll add a test to make sure you
 can't replace something that isn't there:</p>
 """
+
 
 @testcase
 def test_replace_undefined(test):
@@ -508,6 +526,7 @@ href='http://python.org/doc/lib/inspect-stack.html'>inspect.stack</a></p>
 <p>Once we make the check, there's nothing else to do,
 except to return the new function as-is.</p>
 """
+
 
 def replace(f):
 
@@ -535,6 +554,7 @@ replacing <code>@addMethod</code> with a version that checks
 whether the method already exists. Here's the test case:</p>
 """
 
+
 @testcase
 def test_addMethod_already_there(self):
 
@@ -553,23 +573,24 @@ def test_addMethod_already_there(self):
     else:
         self.fail("should have raised NameError for pre-existing function")
 
+
 """
 <p>The change to make this work is simple:</p>
 """
 
+
 @replace
-def addMethod(theClass):
+def addMethod(klass):
     """
     A decorator that adds a new method to a class.
     """
     def wrapper(f):
-        if (theClass.__dict__.get(f.__name__)):
+        if klass.__dict__.get(f.__name__):
             raise NameError("class %s already has method named %s"
-                            % (theClass.__name__, f.__name__))
-        setattr(theClass, f.__name__,
-                types.MethodType(f, theClass))
+                            % (klass.__name__, f.__name__))
+        setattr(klass, f.__name__,
+                types.MethodType(f, klass))
     return wrapper
-
 
 
 """
@@ -712,6 +733,5 @@ you're going.</p>
 <p>Python makes it easy to run all the tests defined
 in this narrative. It boils down to this: </p>
 """
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
-
