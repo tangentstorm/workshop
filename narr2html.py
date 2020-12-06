@@ -47,7 +47,7 @@ class TEXT:
     def format(chunk):
         for line in chunk:
             print line
-        
+
 class CODE:
     tag = "<pre><code>"
     end = "</code></pre>"
@@ -76,7 +76,7 @@ class HEAD:
     tag = ""
     end = ""
     @staticmethod
-    def format(chunk):        
+    def format(chunk):
         [line] = chunk
         pound, stars, headline = line.split(" ", 2)
         if headline.strip():
@@ -170,9 +170,9 @@ def getChunksReal(s):
                 next = TEST
             chunk.append(line)
         prev = mode
-            
 
-# * main 
+
+# * main
 def main(filename):
     prev = START
     print "<html>"
@@ -199,4 +199,3 @@ if __name__=="__main__":
         unittest.main()
     else:
         main(filename)
-

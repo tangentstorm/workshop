@@ -18,6 +18,5 @@ def common_setup(name, **flags):
 
     exec 'from %s import _eggData' % name
     etc.update(_eggData)
-    
     etc.update(flags)
     setup(**etc)

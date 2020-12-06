@@ -50,7 +50,6 @@ def pack(module, setup_args):
     manifest.write('include ez_setup.py common_setup.py')
     manifest.close()
 
-    
     call(['python', 'setup.py'] + list(setup_args))
     os.chdir('..')
 

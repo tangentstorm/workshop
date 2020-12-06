@@ -33,7 +33,7 @@ def init(appname):
             import model, schema
             from dispatch import urlmap
             from wsgiapp import WebApp, GenshiTheme, fileHandlerFactory
-            
+
             __version__="$version$"
 
             def app_factory(cfg, dbhost, dbname, dbpass, dbuser, baseURL,**etc):
@@ -50,10 +50,10 @@ def init(appname):
                         [urlmap, fileHandlerFactory])
                     self.theme = GenshiTheme(baseURL)
                     self.clerk = clerk or schema.mockClerk()
-                    
+
             ''') % dict(appClass=appClass))
 
-    
+
     with outstream("%s.app.in" % appname) as out:
         out(trim(
             """
@@ -68,7 +68,7 @@ def init(appname):
 
             [app:main]
             paste.app_factory = %(app)s:app_factory
-            
+
             dbhost = %(dbhost)s
             dbname = %(dbname)s
             dbuser = %(dbuser)s
@@ -89,7 +89,7 @@ def init(appname):
             """
             import %s as app
             from platonic import REST,URI
-            
+
             urlmap = REST(
                 URI("/", GET= lambda: handler)
             )
@@ -137,9 +137,9 @@ def init(appname):
             <link rel="stylesheet" href="style.css"/>
             </head>
             <body>
-            
+
             <h1>${title}</h1>
-            
+
             </body>
             </html>
             '''))
@@ -199,9 +199,9 @@ def addToModel(className, tableName=None):
             from %s import model
             import unittest
             from strongbox import *
-            
+
             class %sTest(unittest.TestCase):
-        
+
                 def setUp(self):
                     pass
 
@@ -222,7 +222,7 @@ def addToModel(className, tableName=None):
             from strongbox import *
             from pytypes import *
             import model
-            
+
             class %s(Strongbox):
                 ID = attr(long)
             """) % className)
@@ -256,7 +256,7 @@ def addToSchema(key, value):
 
 def getTableForClass(className):
     import schema, model
-    return schema.schema.dbmap[getattr(model, className)]    
+    return schema.schema.dbmap[getattr(model, className)]
 
 def expectModelClass(name):
     if not os.path.exists("model/%s.py" % name):
@@ -269,7 +269,7 @@ def addLinkset(parent, linksetName, child, backlink=None):
     with outstream("model/%s.py" % parent, "a") as out:
         out('    %s = linkset(lambda: model.%s, "%s")\n'
             % (linksetName, parent, backlink))
-        
+
     if backLink:
         addLink(child, backlink, parent)
 
@@ -321,7 +321,7 @@ def fromXMI(filename):
                             default = attr.xpath('string(defaultValue/@value)'))))
 
             print "added class %s" % className
-    
+
 
 def expectArg(argv, index, msg):
     try:
@@ -361,4 +361,3 @@ def main(argv):
 
 if __name__ == '__main__':
     main(sys.argv)
-
