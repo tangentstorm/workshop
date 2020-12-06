@@ -1,26 +1,25 @@
 #!/usr/bin/python2.5
+import os
 import sys
+import unittest
 sys.path.append('code')
 
 from strongbox import *
 from clerks import *
-from zebra import *
 from weblib import *
 from handy import *
 from storage import *
 from pytypes import *
 
+# from zebra import *   # depends on obsolete xmllib
 
-import os,sys
 
-
-__name__="runtests" # to prevent other unittests from running first
+__name__ = "runtests"   # to prevent other unittests from running first
 spies = []
 for filename in os.listdir('specs'):
-    if filename.endswith(".spy"):
+    if filename.endswith("_spec.py"):
         # pass in filename so it shows up in tracebacks:
-        path = os.path.join('specs',filename)
-        exec compile(open(path).read(), path, 'exec')
+        path = os.path.join('specs', filename)
+        exec(compile(open(path).read(), path, 'exec'))
         
-import unittest
 unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout))
