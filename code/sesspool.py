@@ -1,17 +1,15 @@
 """
 sesspool session module
 """
-
+import dbm
 import unittest
-import UserDict
 import weblib
 import handy
 import random
-import string
+import time
 from pickle import dumps, loads
 
-# * Sess
-# ** test
+
 class SessTest(unittest.TestCase):
     
     def setUp(self, sid=None):
@@ -27,8 +25,7 @@ class SessTest(unittest.TestCase):
         A generated session id (sid) should be 32 chars.
         """
         sid = self.sess.sid
-        assert len(sid)==32, "sess.sid isn't right."
-
+        assert len(sid) == 32, "sess.sid isn't right."
 
     def test_persistence(self):
         """
@@ -42,8 +39,7 @@ class SessTest(unittest.TestCase):
         del self.sess
         self.setUp(sid)
 
-        assert self.sess["x"]==10, "peristence doesn't work! :/"
-
+        assert self.sess["x"] == 10, "peristence doesn't work! :/"
 
     def test_dictstuff(self):
         
@@ -55,21 +51,17 @@ class SessTest(unittest.TestCase):
         assert gotError, \
                "Sess didn't raise keyError on nonexistant key"
 
-
         cat = self.sess.get("cat", "Indiana")
         assert cat == "Indiana", \
                "Sess doesn't do .get()"
         
-
         self.sess["cat"] = "Indy"
         assert self.sess.keys() == ['cat'], \
                "sess.keys() doesn't work"
 
-
         self.sess.clear()
         assert self.sess.get("cat") is None, \
                "sess.clear() doesn't work"
-
 
     def test_del(self):
         self.setUp("deltest")
@@ -89,9 +81,8 @@ class SessTest(unittest.TestCase):
         assert self.sess.get("cat") is None, \
                "Didn't delete key from coldData"
 
-
     def test_url(self):
-        #@TODO: more advanced checks..
+        # @TODO: more advanced checks..
         self.sess.name = "sess"
         self.sess.sid = "ABC"
         assert self.sess.url("http://x.com") == "http://x.com?sess=ABC", \
@@ -105,13 +96,12 @@ class SessTest(unittest.TestCase):
                == "checkout.py?auth_checkout_flag=1&sess=ABC", \
                "sess.url() doesn't encode correctly.."
         
-
     def test_CookieSid(self):
         """
         sess should read sid from the cookie.
         """
-        req = self.builder.build(cookie={"sesspool.Sess":"123"},
-                             querystring="sesspool.Sess=ABC")
+        req = self.builder.build(cookie={"sesspool.Sess": "123"},
+                                 querystring="sesspool.Sess=ABC")
         sess = Sess(self.pool, req, weblib.Response())
         
         actual = sess._getSid()
@@ -129,26 +119,25 @@ class SessTest(unittest.TestCase):
         assert actual == "ABC", \
                "getSid doesn't read the querystring (fallback): %s" % actual
 
-
     def test_newUniqueSid(self):
         """
         sids should be uniqe
         """
-        self.sess.sidmaker = [2,1,1].pop # remember, pop starts at the end
+        self.sess.sidmaker = [2, 1, 1].pop  # remember, pop starts at the end
         self.assertEquals(1, self.sess.newUniqueSid())
 
         # but if you do that when the sess exists, it should keep
         # skipping until it gets a unique one:
-        self.pool.putSess("sesspool.Sess",1, "fake frozen sess data")
-        self.sess.sidmaker = [2,1,1].pop # remember, pop starts at the end
+        self.pool.putSess("sesspool.Sess", 1, "fake frozen sess data")
+        self.sess.sidmaker = [2, 1, 1].pop # remember, pop starts at the end
         self.assertEquals(2, self.sess.newUniqueSid())
 
-        #@TODO: while unlikely, identical sids could be generated simultaneously
-        
+        # @TODO: while unlikely, identical sids could be generated simultaneously
 
     def tearDown(self):
         del self.sess
-# ** code
+
+
 """
 Sess.py : emulates PHPLIB's session support in python
 """
@@ -158,19 +147,16 @@ Sess.py : emulates PHPLIB's session support in python
 # but python seems to have trouble pickling a dictionary of
 # prepickled objects, so that method is deprecated.. If anyone
 # really needs it, look at HotColdSess.py (the old version)
-## Sess : a session handler ################
 
-class Sess(UserDict.UserDict):
-    # can't get rid of this __super until b/c UserDict is old-style class
-    __super = UserDict.UserDict
 
-    ## constructor ############################
+class Sess(dict):
+    """Session Handler"""
 
     def __init__(self, pool, request, response):
-        self.__super.__init__(self)
+        super(Sess, self).__init__()
         self._request = request
         self._response = response
-        self._pool = pool # where to store the data
+        self._pool = pool   # where to store the data
         
         self.sid = ""   
         self.name = "sesspool.Sess"
@@ -184,8 +170,7 @@ class Sess(UserDict.UserDict):
         # a function to make new sids
         self.sidmaker = handy.uid
 
-
-    ## public methods ########################
+    # public methods ########################
 
     def pop(self, key):
         res = self.data[key]
@@ -204,13 +189,12 @@ class Sess(UserDict.UserDict):
             self.sid = self._getSid()
         else:
             self.sid = sid
-        #@TODO: this was an emergiceny hack. fix me!
-        from Cookie import Morsel
+        # @TODO: this was an emergiceny hack. fix me!
+        from http.cookies import Morsel
         if isinstance(self.sid, Morsel):
             self.sid = self.sid.value
         self._thaw()        
         self._gc()
-
 
     def abandon(self):
         """
@@ -218,7 +202,6 @@ class Sess(UserDict.UserDict):
         """
         self.clear()
         self.sid = ""
-
 
     def url(self, oldurl):
         """
@@ -228,13 +211,12 @@ class Sess(UserDict.UserDict):
         URL, else the URL is returned unmodified.
         """
         # if there's not already a querystring:
-        if string.find(oldurl, "?") == -1:
+        if oldurl.find("?") == -1:
             return oldurl + "?%s=%s" % (self.name, self.sid)
         else:
             return oldurl + "&%s=%s" % (self.name, self.sid)
 
-        #@TODO: have sess.url overwrite old sess ID's in querystring
-
+        # TODO: have sess.url overwrite old sess ID's in querystring
 
     def stop(self):
         """
@@ -243,9 +225,7 @@ class Sess(UserDict.UserDict):
         self._freeze()
         self._pool.done()
 
-
-
-    ## internal methods ####################
+    # internal methods ####################
 
     def newUniqueSid(self):
         sid = None        
@@ -278,22 +258,19 @@ class Sess(UserDict.UserDict):
         if sid is None:
             sid = self.newUniqueSid()
 
-        #@TODO: add code for timeouts wrt setCookie
+        # @TODO: add code for timeouts wrt setCookie
         if self.mode == "cookie":
             # always update the cookie
             self._response.addCookie(self.name, sid)
                 
         return sid
 
-
-
     def _gc(self):
         """
         occasionally drains the sesspool
         """
-        if (random.random() * 100 <= self.gcProb):
+        if random.random() * 100 <= self.gcProb:
             self._pool.drain(self.name, 0)
-            
 
     def _freeze(self):
         """
@@ -302,7 +279,7 @@ class Sess(UserDict.UserDict):
 
         # freeze the data stuff:
         self._pool.putSess(self.name, self.sid,
-                           dumps(self.data, 0)) # 1=binary, 0=ascii
+                           dumps(self.data, 0))  # 1=binary, 0=ascii
 
     def _thaw(self):
         """
@@ -313,8 +290,8 @@ class Sess(UserDict.UserDict):
             self.data = {}
         else:
             self.data = loads(frozen)
-# * SessPool
-# SessPool.py : classes for holding frozen Sesses :)
+
+
 class SessPool:
     """
     The default SessPool uses an anydbm file.
@@ -322,24 +299,19 @@ class SessPool:
     same interface (getSess(), setSess(), and drain())...
     """
 
-    #@TODO: this isn't backed up with test cases..
+    # @TODO: this isn't backed up with test cases..
     
     def __init__(self, filename):
-        import anydbm
-        self.storage = anydbm.open(filename,"c")
+        self.storage = dbm.open(filename, "c")
         
     def getSess(self, name, sid):
         """returns the sess with the specified name and id, or None"""
-        if self.storage.has_key(str(name)+str(sid)):
-            return self.storage[str(name)+str(sid)]
-        else:
-            return None
+        return self.storage.get(str(name)+str(sid))
 
     def putSess(self, name, sid, frozensess):
         """stores a frozen sess with the specified name and id"""
         self.storage["newkey"]="newval"
         self.storage[str(name)+str(sid)] = frozensess
-
 
     def drain(self, name, beforewhen):
         """(should) performs garbage collection to kill off old sesses"""
@@ -349,7 +321,7 @@ class SessPool:
     def done(self):
         self.storage.close()
 
-# * InMemorySessPool
+
 class InMemorySessPool(SessPool):
     """
     Just uses a dictionary.
@@ -360,16 +332,14 @@ class InMemorySessPool(SessPool):
     several...
     """
     pool = {}
-    def __init__(self, dict=None):
-        if dict:
-            self.storage = dict
-        else:
-            self.storage = self.pool
+
+    def __init__(self, data=None):
+        self.storage = self.pool if data is None else data
 
     def done(self):
         pass
 
-# * SqlSessPool
+
 class SqlSessPool:
     """
     This uses a DB-API 2.0 compliant Connection object to store Sessions.
@@ -392,28 +362,20 @@ class SqlSessPool:
         self.dbc = dbc
         self.table = table
 
-
     def getSess(self, name, sid):
         cur = self.dbc.cursor()
-        cur.execute("select sess from " + self.table + \
+        cur.execute("select sess from " + self.table +
                     " where name='" + name + "' and sid='" + sid + "'")
-
         try:
-            ## GRR.. the win32 mysql has a problem with this..
-            #@TODO: find a way to isolate stuff like this..
+            # GRR.. the win32 mysql has a problem with this..
+            # @TODO: find a way to isolate stuff like this..
             row = cur.fetchone()
         except:
             row = None
-            
-        if row is None:
-            return row
-        else:
-            return row[0]
-
+        return None if row is None else row[0]
 
     def putSess(self, name, sid, frozensess):
-        import string, time       
-	frozen = string.replace(frozensess, "'", "''")
+        frozen = frozensess.replace("'", "''")
         cur = self.dbc.cursor()
         sql =\
             """
@@ -422,23 +384,22 @@ class SqlSessPool:
             """ % (self.table, frozen, name, sid, time.time())
         try:
             cur.execute(sql)
-        except Exception, e:
-            raise Exception, "error storing session: %s \n SQL WAS:\n %s" \
-                  % (e, sql)
+        except Exception as e:
+            raise Exception(f"error storing session: {e} \n SQL WAS:\n {sql}")
         self.dbc.commit()
     
-
-    def drain(self, name, beforeWhen):
+    def drain(self, name, before_when):
         cur = self.dbc.cursor()
-        #@TODO: cleanup beforeWhen (garbage collection)
+        # @TODO: cleanup beforeWhen (garbage collection)
         sql =\
             """
-            DELETE FROM %s WHERE name='%s' and tsUpdate < '%s'
-            """ % (self.table, name, `beforeWhen`)
+            DELETE FROM %s WHERE name='%s' and tsUpdate < '%r'
+            """ % (self.table, name, before_when)
         cur.execute(sql)
 
     def done(self):
         pass
-# * --
-if __name__=="__main__":
+
+
+if __name__ == "__main__":
     unittest.main()
