@@ -100,7 +100,7 @@ def signature(f):
 
 def firstMatch(arg, dicts):
     for d in dicts:
-        if d.has_key(arg):
+        if arg in d:
             return d[arg]
     raise TypeError("missing parameter: %s" % arg)
 
