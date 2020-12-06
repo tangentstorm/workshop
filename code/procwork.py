@@ -10,8 +10,8 @@ def waitfor(cmd, secondsToWait=0):
 
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=1)
-    except Exception, e:
-        raise Exception("error on %s: %s" % (cmd, str(e)))
+    except Exception as e:
+        raise Exception("error on %s: %s" % (cmd, e))
 
     p.killed = False
     start = time.time()
