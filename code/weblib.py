@@ -447,31 +447,39 @@ class RequestDataTest(unittest.TestCase):
                "doesn't tupleize multiple values"
         assert q["e"] == "em cee squared", \
                "query's urldecoding not working"
-    
+
+
 # ** code
 
 class RequestData(dict):
     """
     a dict-like object to represent form contents or a query string
     """
-    def __init__(self, string):
-        self.string = string
+    def __init__(self, s: str):
+        super().__init__()
         self.type = "application/x-www-form-urlencoded"
-        for k,v in self._splitPairs(string).items():
-            self[k]=v
-    def _splitPairs(self, what, splitter="&", decode=1):
+        try:
+            self.string = s.decode('utf-8') if isinstance(s, bytes) else s
+        except UnicodeDecodeError:
+            raise
+        for k, v in self._split_pairs(self.string).items():
+            self[k] = v
+
+    @staticmethod
+    def _split_pairs(what, splitter="&", decode=1):
         res = {}
         for pair in what.split(splitter):
             if decode:
                 pair = urlDecode(pair)
-            l = pair.split("=", 1)
-            k = l[0]
-            if len(l) > 1:
-                v = l[1]
+            s = pair.split("=", 1)
+            k = s[0]
+            if len(s) > 1:
+                v = s[1]
             else:
                 v = ''
             res[k] = _tupleMerge(res[k], v) if k in res else v
         return res
+
 # * RequestBuilder
 iso = "ISO-8859-1"
 import urllib
